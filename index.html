@@ -1143,10 +1143,7 @@ q1,b,q2</textarea>
 
 <div class="creator-badge">
   <div class="creator-avatar">
-    <picture>
-      <source srcset="creator.jpg" type="image/jpeg">
-      <img src="creator.jpg" alt="Muhammad Abdullah" class="creator-avatar-photo" onerror="this.style.display='none'" />
-    </picture>
+    <img id="creator-avatar-img" src="" alt="Muhammad Abdullah" class="creator-avatar-photo" onerror="this.style.display='none'" />
     <span class="creator-avatar-fallback">MA</span>
   </div>
   <div class="creator-details">
@@ -1156,6 +1153,10 @@ q1,b,q2</textarea>
 </div>
 
 <script>
+const creatorAvatarImg = document.getElementById('creator-avatar-img');
+if (creatorAvatarImg) {
+  creatorAvatarImg.src = window.location.protocol === 'file:' ? 'creator.jpg' : '/static/creator.jpg';
+}
 const API = '';  // Same-origin
 let currentTab = 'dfa';
 let graphStates = [];

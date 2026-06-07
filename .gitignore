@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+.env
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+~$*
+*.docx
+
+# Binaries
+ngrok.exe
+ngrok-v3-stable-windows-amd64.zip
+
+# Archives
+files.zip
+
+# Cache
+*.pycache

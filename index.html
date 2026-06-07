@@ -1143,7 +1143,7 @@ q1,b,q2</textarea>
 
 <div class="creator-badge">
   <div class="creator-avatar">
-    <img id="creator-avatar-img" src="" alt="Muhammad Abdullah" class="creator-avatar-photo" onerror="this.style.display='none'" />
+    <img id="creator-avatar-img" src="" alt="Muhammad Abdullah" class="creator-avatar-photo" />
     <span class="creator-avatar-fallback">MA</span>
   </div>
   <div class="creator-details">
@@ -1154,9 +1154,31 @@ q1,b,q2</textarea>
 
 <script>
 const creatorAvatarImg = document.getElementById('creator-avatar-img');
-if (creatorAvatarImg) {
-  creatorAvatarImg.src = window.location.protocol === 'file:' ? 'creator.jpg' : '/static/creator.jpg';
+const creatorAvatarFallback = document.querySelector('.creator-avatar-fallback');
+const creatorImageCandidates = [
+  '/static/creator.jpg',
+  window.location.origin + '/static/creator.jpg',
+  'creator.jpg',
+  './creator.jpg'
+];
+
+function loadCreatorImage(index = 0) {
+  if (!creatorAvatarImg || index >= creatorImageCandidates.length) {
+    if (creatorAvatarImg) creatorAvatarImg.style.display = 'none';
+    if (creatorAvatarFallback) creatorAvatarFallback.style.display = 'block';
+    return;
+  }
+
+  const url = creatorImageCandidates[index];
+  creatorAvatarImg.onload = () => {
+    creatorAvatarImg.style.display = 'block';
+    if (creatorAvatarFallback) creatorAvatarFallback.style.display = 'none';
+  };
+  creatorAvatarImg.onerror = () => loadCreatorImage(index + 1);
+  creatorAvatarImg.src = url;
 }
+
+loadCreatorImage();
 const API = '';  // Same-origin
 let currentTab = 'dfa';
 let graphStates = [];

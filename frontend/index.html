@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>AutomataViz — DFA/NFA Simulator</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600;700&family=Space+Grotesk:wght@300;400;600;700&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg: #0a0e1a;
+    --surface: #111827;
+    --surface2: #1a2236;
+    --border: #1e2d45;
+    --accent: #00d4ff;
+    --accent2: #7c3aed;
+    --accept: #10b981;
+    --reject: #ef4444;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --active: #f59e0b;
+    --mono: 'JetBrains Mono', monospace;
+    --sans: 'Space Grotesk', sans-serif;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--sans); overflow-x: hidden; }
+
+  /* Grid noise background */
+  body::before {
+    content: '';
+    position: fixed; inset: 0; z-index: 0;
+    background-image:
+      linear-gradient(rgba(0,212,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,212,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+  }
+
+  .app { position: relative; z-index: 1; min-height: 100vh; display: flex; flex-direction: column; }
+
+  /* Header */
+  header {
+    padding: 24px 40px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    background: rgba(10,14,26,0.8); backdrop-filter: blur(12px);
+    position: sticky; top: 0; z-index: 100;
+  }
+  .logo { display: flex; align-items: center; gap: 12px; }
+  .logo-icon {
+    width: 36px; height: 36px; border-radius: 8px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+  .logo-text { font-size: 20px; font-weight: 700; letter-spacing: -0.5px; }
+  .logo-text span { color: var(--accent); }
+  .badge {
+    font-family: var(--mono); font-size: 11px; font-weight: 600;
+    padding: 4px 10px; border-radius: 20px;
+    background: rgba(0,212,255,0.1); border: 1px solid rgba(0,212,255,0.3);
+    color: var(--accent);
+  }
+
+  /* Main Layout */
+  main { flex: 1; display: grid; grid-template-columns: 400px 1fr; gap: 0; height: calc(100vh - 73px); }
+
+  /* Left Panel */
+  .panel-left {
+    border-right: 1px solid var(--border);
+    overflow-y: auto; display: flex; flex-direction: column;
+    background: var(--surface);
+  }
+
+  /* Tabs */
+  .tabs {
+    display: flex; border-bottom: 1px solid var(--border);
+    background: var(--bg);
+  }
+  .tab {
+    flex: 1; padding: 14px; font-family: var(--mono); font-size: 12px; font-weight: 600;
+    cursor: pointer; border: none; background: transparent; color: var(--muted);
+    letter-spacing: 0.5px; transition: all 0.2s; border-bottom: 2px solid transparent;
+    text-transform: uppercase;
+  }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); background: rgba(0,212,255,0.05); }
+  .tab:hover:not(.active) { color: var(--text); background: rgba(255,255,255,0.03); }
+
+  /* Form Section */
+  .form-section { padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+  .field-group { display: flex; flex-direction: column; gap: 6px; }
+  label { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; font-family: var(--mono); }
+  input, textarea {
+    background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text); font-family: var(--mono); font-size: 13px;
+    padding: 10px 12px; border-radius: 8px; outline: none;
+    transition: border-color 0.2s;
+  }
+  input:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(0,212,255,0.1); }
+  textarea { resize: vertical; min-height: 80px; line-height: 1.6; }
+
+  .hint { font-size: 10px; color: var(--muted); font-family: var(--mono); }
+
+  /* Preset Button */
+  .preset-bar { display: flex; gap: 8px; flex-wrap: wrap; padding: 12px 20px; border-bottom: 1px solid var(--border); }
+  .preset-btn {
+    font-family: var(--mono); font-size: 10px; padding: 5px 10px;
+    border-radius: 6px; border: 1px solid var(--border);
+    background: var(--surface2); color: var(--muted); cursor: pointer;
+    transition: all 0.2s; white-space: nowrap;
+  }
+  .preset-btn:hover { border-color: var(--accent); color: var(--accent); background: rgba(0,212,255,0.05); }
+
+  /* Run Button */
+  .run-btn {
+    margin: 0 20px 20px;
+    padding: 14px; border-radius: 10px; border: none; cursor: pointer;
+    font-family: var(--mono); font-size: 13px; font-weight: 700; letter-spacing: 1px;
+    text-transform: uppercase;
+    background: linear-gradient(135deg, var(--accent), #0099cc);
+    color: #000; transition: all 0.2s;
+    position: relative; overflow: hidden;
+  }
+  .run-btn:hover { transform: translateY(-1px); box-shadow: 0 8px 25px rgba(0,212,255,0.3); }
+  .run-btn:active { transform: translateY(0); }
+  .run-btn.loading { opacity: 0.7; pointer-events: none; }
+
+  /* Convert Button */
+  .convert-btn {
+    margin: 0 20px 20px;
+    padding: 12px; border-radius: 10px; border: 1px solid var(--accent2); cursor: pointer;
+    font-family: var(--mono); font-size: 12px; font-weight: 600;
+    background: rgba(124,58,237,0.1); color: var(--accent2); transition: all 0.2s;
+    text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  .convert-btn:hover { background: rgba(124,58,237,0.2); box-shadow: 0 4px 20px rgba(124,58,237,0.2); }
+
+  /* Right Panel */
+  .panel-right {
+    overflow-y: auto; display: flex; flex-direction: column; gap: 0;
+    background: var(--bg);
+  }
+
+  /* Graph Canvas */
+  .graph-container {
+    border-bottom: 1px solid var(--border);
+    background: var(--surface); position: relative;
+    min-height: 300px; display: flex; flex-direction: column;
+  }
+  .section-header {
+    padding: 16px 24px; display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+  }
+  .section-title { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; font-family: var(--mono); }
+  #graphCanvas { width: 100%; flex: 1; min-height: 260px; }
+
+  /* Result Banner */
+  .result-banner {
+    display: none; margin: 20px 24px 0;
+    padding: 16px 20px; border-radius: 12px;
+    font-family: var(--mono); font-size: 14px; font-weight: 700;
+    letter-spacing: 0.5px; align-items: center; gap: 12px;
+  }
+  .result-banner.accepted { background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.4); color: var(--accept); }
+  .result-banner.rejected { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.4); color: var(--reject); }
+  .result-banner.show { display: flex; }
+  .result-icon { font-size: 20px; }
+
+  /* Steps */
+  .steps-container { padding: 20px 24px; display: flex; flex-direction: column; gap: 12px; }
+  .step-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 14px 16px;
+    display: flex; align-items: flex-start; gap: 14px;
+    transition: all 0.3s; opacity: 0; transform: translateY(10px);
+    animation: fadeUp 0.3s forwards;
+  }
+  @keyframes fadeUp { to { opacity: 1; transform: translateY(0); } }
+  .step-card.active-step { border-color: var(--active); background: rgba(245,158,11,0.05); }
+  .step-card.final-accept { border-color: var(--accept); background: rgba(16,185,129,0.05); }
+  .step-card.final-reject { border-color: var(--reject); background: rgba(239,68,68,0.05); }
+
+  .step-num {
+    width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--mono); font-size: 11px; font-weight: 700;
+    background: var(--surface2); border: 1px solid var(--border); color: var(--muted);
+  }
+  .step-body { flex: 1; }
+  .step-state {
+    font-family: var(--mono); font-size: 13px; font-weight: 600;
+    color: var(--accent);
+  }
+  .step-detail { font-size: 12px; color: var(--muted); margin-top: 4px; font-family: var(--mono); }
+  .step-note { font-size: 11px; color: var(--accent2); margin-top: 6px; font-family: var(--mono); }
+  .arrow-sym {
+    display: inline-block; background: rgba(0,212,255,0.1);
+    border: 1px solid rgba(0,212,255,0.2); color: var(--accent);
+    font-family: var(--mono); font-size: 13px; font-weight: 700;
+    padding: 2px 8px; border-radius: 5px; margin: 0 4px;
+  }
+
+  /* Conversion Result */
+  .conversion-result {
+    padding: 20px 24px; display: none; flex-direction: column; gap: 16px;
+  }
+  .conversion-result.show { display: flex; }
+  .dfa-table {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+    overflow: hidden; font-family: var(--mono); font-size: 12px;
+  }
+  .dfa-table table { width: 100%; border-collapse: collapse; }
+  .dfa-table th {
+    padding: 10px 14px; text-align: left; font-size: 10px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.8px; color: var(--muted);
+    background: var(--surface2); border-bottom: 1px solid var(--border);
+  }
+  .dfa-table td { padding: 10px 14px; border-bottom: 1px solid var(--border); }
+  .dfa-table tr:last-child td { border-bottom: none; }
+  .dfa-table .accept-row td { color: var(--accept); }
+  .dfa-table .start-row td { color: var(--accent); }
+
+  .construction-steps { display: flex; flex-direction: column; gap: 6px; max-height: 250px; overflow-y: auto; }
+  .c-step {
+    font-family: var(--mono); font-size: 11px; padding: 8px 12px;
+    border-radius: 6px; background: var(--surface); border-left: 3px solid var(--border);
+    color: var(--muted); line-height: 1.5;
+  }
+  .c-step.new-state { border-left-color: var(--accent2); color: var(--accent2); }
+  .c-step.start { border-left-color: var(--accent); color: var(--accent); }
+
+  /* Error */
+  .error-box {
+    display: none; margin: 20px 24px;
+    padding: 14px 16px; border-radius: 10px;
+    background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3);
+    font-family: var(--mono); font-size: 12px; color: var(--reject);
+  }
+  .error-box.show { display: block; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+
+  /* Placeholder */
+  .placeholder {
+    padding: 60px 24px; text-align: center; color: var(--muted);
+    display: flex; flex-direction: column; align-items: center; gap: 12px;
+  }
+  .placeholder-icon { font-size: 48px; opacity: 0.3; }
+  .placeholder-text { font-size: 14px; font-family: var(--mono); }
+
+  @media (max-width: 900px) {
+    main { grid-template-columns: 1fr; height: auto; }
+    .panel-left { height: auto; }
+    .panel-right { min-height: 60vh; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="logo">
+      <div class="logo-icon">⚙</div>
+      <div class="logo-text">Automata<span>Viz</span></div>
+    </div>
+    <span class="badge">TOA Project — NUTech</span>
+  </header>
+
+  <main>
+    <!-- LEFT PANEL -->
+    <div class="panel-left">
+      <div class="tabs">
+        <button class="tab active" onclick="switchTab('dfa')">DFA</button>
+        <button class="tab" onclick="switchTab('nfa')">NFA / ε-NFA</button>
+        <button class="tab" onclick="switchTab('convert')">NFA→DFA</button>
+      </div>
+
+      <!-- DFA FORM -->
+      <div id="tab-dfa" class="tab-content">
+        <div class="preset-bar">
+          <span style="font-size:10px;color:var(--muted);font-family:var(--mono);align-self:center;">Presets:</span>
+          <button class="preset-btn" onclick="loadDFAPreset(0)">ends in 01</button>
+          <button class="preset-btn" onclick="loadDFAPreset(1)">even 0s</button>
+        </div>
+        <div class="form-section">
+          <div class="field-group">
+            <label>States (comma separated)</label>
+            <input id="dfa-states" type="text" placeholder="q0, q1, q2" value="q0, q1, q2"/>
+          </div>
+          <div class="field-group">
+            <label>Alphabet (comma separated)</label>
+            <input id="dfa-alpha" type="text" placeholder="0, 1" value="0, 1"/>
+          </div>
+          <div class="field-group">
+            <label>Start State</label>
+            <input id="dfa-start" type="text" placeholder="q0" value="q0"/>
+          </div>
+          <div class="field-group">
+            <label>Accept States (comma separated)</label>
+            <input id="dfa-accept" type="text" placeholder="q2" value="q2"/>
+          </div>
+          <div class="field-group">
+            <label>Transitions</label>
+            <span class="hint">Format: state,symbol,next — one per line</span>
+            <textarea id="dfa-trans" placeholder="q0,0,q1&#10;q0,1,q0">q0,0,q1
+q0,1,q0
+q1,0,q1
+q1,1,q2
+q2,0,q1
+q2,1,q0</textarea>
+          </div>
+          <div class="field-group">
+            <label>Input String</label>
+            <input id="dfa-input" type="text" placeholder="e.g. 1001" value="1001"/>
+          </div>
+        </div>
+        <button class="run-btn" onclick="runDFA()">▶ Simulate DFA</button>
+      </div>
+
+      <!-- NFA FORM -->
+      <div id="tab-nfa" class="tab-content" style="display:none;">
+        <div class="preset-bar">
+          <span style="font-size:10px;color:var(--muted);font-family:var(--mono);align-self:center;">Presets:</span>
+          <button class="preset-btn" onclick="loadNFAPreset(0)">ends in ab</button>
+        </div>
+        <div class="form-section">
+          <div class="field-group">
+            <label>States</label>
+            <input id="nfa-states" type="text" placeholder="q0, q1, q2" value="q0, q1, q2"/>
+          </div>
+          <div class="field-group">
+            <label>Alphabet (use ε for epsilon)</label>
+            <input id="nfa-alpha" type="text" placeholder="a, b, ε" value="a, b, ε"/>
+          </div>
+          <div class="field-group">
+            <label>Start State</label>
+            <input id="nfa-start" type="text" placeholder="q0" value="q0"/>
+          </div>
+          <div class="field-group">
+            <label>Accept States</label>
+            <input id="nfa-accept" type="text" placeholder="q2" value="q2"/>
+          </div>
+          <div class="field-group">
+            <label>Transitions</label>
+            <span class="hint">Format: state,symbol,next1;next2 — one per line</span>
+            <textarea id="nfa-trans" placeholder="q0,a,q0;q1">q0,a,q0;q1
+q0,b,q0
+q1,b,q2</textarea>
+          </div>
+          <div class="field-group">
+            <label>Input String</label>
+            <input id="nfa-input" type="text" placeholder="e.g. aab" value="aab"/>
+          </div>
+        </div>
+        <button class="run-btn" onclick="runNFA()">▶ Simulate NFA</button>
+      </div>
+
+      <!-- CONVERT FORM -->
+      <div id="tab-convert" class="tab-content" style="display:none;">
+        <div class="form-section">
+          <p style="font-size:12px;color:var(--muted);font-family:var(--mono);line-height:1.6;">
+            Enter an NFA below. The system will apply <strong style="color:var(--accent2)">Subset Construction</strong> to produce an equivalent DFA, showing every step.
+          </p>
+          <div class="field-group">
+            <label>NFA States</label>
+            <input id="conv-states" type="text" placeholder="q0, q1, q2" value="q0, q1, q2"/>
+          </div>
+          <div class="field-group">
+            <label>Alphabet</label>
+            <input id="conv-alpha" type="text" placeholder="a, b" value="a, b"/>
+          </div>
+          <div class="field-group">
+            <label>Start State</label>
+            <input id="conv-start" type="text" placeholder="q0" value="q0"/>
+          </div>
+          <div class="field-group">
+            <label>Accept States</label>
+            <input id="conv-accept" type="text" placeholder="q2" value="q2"/>
+          </div>
+          <div class="field-group">
+            <label>Transitions (state,symbol,next1;next2)</label>
+            <textarea id="conv-trans">q0,a,q0;q1
+q0,b,q0
+q1,b,q2</textarea>
+          </div>
+        </div>
+        <button class="convert-btn" onclick="runConvert()">⚡ Convert NFA → DFA</button>
+      </div>
+    </div>
+
+    <!-- RIGHT PANEL -->
+    <div class="panel-right" id="right-panel">
+      <!-- Graph -->
+      <div class="graph-container">
+        <div class="section-header">
+          <span class="section-title">State Graph</span>
+          <span id="graph-label" style="font-family:var(--mono);font-size:11px;color:var(--muted);">—</span>
+        </div>
+        <canvas id="graphCanvas"></canvas>
+      </div>
+
+      <!-- Error -->
+      <div class="error-box" id="error-box"></div>
+
+      <!-- Result Banner -->
+      <div class="result-banner" id="result-banner">
+        <span class="result-icon"></span>
+        <div>
+          <div id="result-title"></div>
+          <div id="result-reason" style="font-size:11px;font-weight:400;margin-top:3px;opacity:0.7;"></div>
+        </div>
+      </div>
+
+      <!-- Steps -->
+      <div class="steps-container" id="steps-container">
+        <div class="placeholder">
+          <div class="placeholder-icon">⟳</div>
+          <div class="placeholder-text">Define your automaton and run a simulation</div>
+        </div>
+      </div>
+
+      <!-- Conversion Result -->
+      <div class="conversion-result" id="conv-result"></div>
+    </div>
+  </main>
+</div>
+
+<script>
+const API = '';  // Same-origin
+let currentTab = 'dfa';
+let graphStates = [];
+let graphTransitions = {};
+let graphAccept = [];
+let graphStart = '';
+let activeStates = [];
+let graphAlphabet = [];
+
+// ── Tab Switching ─────────────────────────────────────────────────────────
+function switchTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.tab').forEach((t, i) => {
+    t.classList.toggle('active', ['dfa','nfa','convert'][i] === tab);
+  });
+  document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
+  document.getElementById('tab-' + tab).style.display = 'flex';
+  document.getElementById('tab-' + tab).style.flexDirection = 'column';
+  clearResults();
+}
+
+// ── Parse helpers ─────────────────────────────────────────────────────────
+function parseList(s) { return s.split(',').map(x => x.trim()).filter(Boolean); }
+
+function parseDFATrans(s) {
+  const t = {};
+  s.trim().split('\n').forEach(line => {
+    line = line.trim(); if (!line) return;
+    const [from, sym, to] = line.split(',').map(x => x.trim());
+    if (!t[from]) t[from] = {};
+    t[from][sym] = to;
+  });
+  return t;
+}
+
+function parseNFATrans(s) {
+  const t = {};
+  s.trim().split('\n').forEach(line => {
+    line = line.trim(); if (!line) return;
+    const parts = line.split(',').map(x => x.trim());
+    const from = parts[0], sym = parts[1], nexts = parts[2] ? parts[2].split(';').map(x => x.trim()) : [];
+    if (!t[from]) t[from] = {};
+    t[from][sym] = nexts;
+  });
+  return t;
+}
+
+// ── Clear ─────────────────────────────────────────────────────────────────
+function clearResults() {
+  document.getElementById('error-box').className = 'error-box';
+  document.getElementById('result-banner').className = 'result-banner';
+  document.getElementById('steps-container').innerHTML = `<div class="placeholder"><div class="placeholder-icon">⟳</div><div class="placeholder-text">Define your automaton and run a simulation</div></div>`;
+  document.getElementById('conv-result').className = 'conversion-result';
+  activeStates = [];
+  drawGraph();
+}
+
+// ── Error ──────────────────────────────────────────────────────────────────
+function showError(msg) {
+  const box = document.getElementById('error-box');
+  box.textContent = '⚠ ' + msg;
+  box.className = 'error-box show';
+}
+
+// ── DFA Simulation ────────────────────────────────────────────────────────
+async function runDFA() {
+  const btn = document.querySelector('#tab-dfa .run-btn');
+  btn.classList.add('loading'); btn.textContent = '⏳ Running...';
+  clearResults();
+
+  const payload = {
+    states: parseList(document.getElementById('dfa-states').value),
+    alphabet: parseList(document.getElementById('dfa-alpha').value),
+    transitions: parseDFATrans(document.getElementById('dfa-trans').value),
+    start_state: document.getElementById('dfa-start').value.trim(),
+    accept_states: parseList(document.getElementById('dfa-accept').value),
+    input_string: document.getElementById('dfa-input').value.trim()
+  };
+
+  setupGraph(payload.states, payload.transitions, payload.accept_states, payload.start_state, payload.alphabet, 'dfa');
+
+  try {
+    const res = await fetch(API + '/simulate/dfa', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+    const data = await res.json();
+    if (!data.success) { showError(data.errors.join('\n')); return; }
+    renderSteps(data.steps, data.accepted, data.reason, 'dfa');
+  } catch(e) { showError('Connection error: ' + e.message); }
+  finally { btn.classList.remove('loading'); btn.textContent = '▶ Simulate DFA'; }
+}
+
+// ── NFA Simulation ────────────────────────────────────────────────────────
+async function runNFA() {
+  const btn = document.querySelector('#tab-nfa .run-btn');
+  btn.classList.add('loading'); btn.textContent = '⏳ Running...';
+  clearResults();
+
+  const payload = {
+    states: parseList(document.getElementById('nfa-states').value),
+    alphabet: parseList(document.getElementById('nfa-alpha').value),
+    transitions: parseNFATrans(document.getElementById('nfa-trans').value),
+    start_state: document.getElementById('nfa-start').value.trim(),
+    accept_states: parseList(document.getElementById('nfa-accept').value),
+    input_string: document.getElementById('nfa-input').value.trim()
+  };
+
+  setupGraph(payload.states, payload.transitions, payload.accept_states, payload.start_state, payload.alphabet, 'nfa');
+
+  try {
+    const res = await fetch(API + '/simulate/nfa', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+    const data = await res.json();
+    if (!data.success) { showError(data.errors.join('\n')); return; }
+    renderSteps(data.steps, data.accepted, data.reason, 'nfa');
+  } catch(e) { showError('Connection error: ' + e.message); }
+  finally { btn.classList.remove('loading'); btn.textContent = '▶ Simulate NFA'; }
+}
+
+// ── Convert ───────────────────────────────────────────────────────────────
+async function runConvert() {
+  const btn = document.querySelector('.convert-btn');
+  btn.textContent = '⏳ Converting...';
+  clearResults();
+
+  const payload = {
+    states: parseList(document.getElementById('conv-states').value),
+    alphabet: parseList(document.getElementById('conv-alpha').value),
+    transitions: parseNFATrans(document.getElementById('conv-trans').value),
+    start_state: document.getElementById('conv-start').value.trim(),
+    accept_states: parseList(document.getElementById('conv-accept').value)
+  };
+
+  try {
+    const res = await fetch(API + '/convert/nfa-to-dfa', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+    const data = await res.json();
+    if (!data.success) { showError('Conversion failed'); return; }
+    renderConversion(data, payload);
+  } catch(e) { showError('Connection error: ' + e.message); }
+  finally { btn.textContent = '⚡ Convert NFA → DFA'; }
+}
+
+// ── Render Steps ──────────────────────────────────────────────────────────
+function renderSteps(steps, accepted, reason, mode) {
+  const container = document.getElementById('steps-container');
+  container.innerHTML = '';
+
+  const banner = document.getElementById('result-banner');
+  const icon = banner.querySelector('.result-icon');
+  const title = document.getElementById('result-title');
+  const reasonEl = document.getElementById('result-reason');
+
+  banner.className = 'result-banner show ' + (accepted ? 'accepted' : 'rejected');
+  icon.textContent = accepted ? '✓' : '✗';
+  title.textContent = accepted ? 'STRING ACCEPTED' : 'STRING REJECTED';
+  reasonEl.textContent = reason;
+
+  steps.forEach((step, idx) => {
+    const card = document.createElement('div');
+    const isLast = idx === steps.length - 1;
+    card.className = 'step-card' + (isLast ? (accepted ? ' final-accept' : ' final-reject') : '');
+    card.style.animationDelay = (idx * 60) + 'ms';
+
+    const numEl = document.createElement('div');
+    numEl.className = 'step-num';
+    numEl.textContent = step.step;
+
+    const body = document.createElement('div');
+    body.className = 'step-body';
+
+    if (mode === 'dfa') {
+      const state = step.next_state || step.current_state;
+      body.innerHTML = `<div class="step-state">${step.symbol_read ? `<span style="color:var(--muted)">${step.current_state}</span> <span class="arrow-sym">${step.symbol_read}</span> → ${step.next_state ?? '—'}` : `Start: ${step.current_state}`}</div>
+      <div class="step-detail">Remaining: <span style="color:var(--text)">"${step.remaining_input || '(end)'}"</span></div>`;
+    } else {
+      const active = step.active_states ? step.active_states.join(', ') : '—';
+      const next = step.next_states ? step.next_states.join(', ') : '—';
+      body.innerHTML = `<div class="step-state">${step.symbol_read ? `Read <span class="arrow-sym">${step.symbol_read}</span>` : 'Initial'}</div>
+      <div class="step-detail">Active: {${active}} → {${step.next_states ? next : active}}</div>
+      <div class="step-note">${step.note || ''}</div>`;
+    }
+
+    card.appendChild(numEl);
+    card.appendChild(body);
+    container.appendChild(card);
+
+    // Highlight active states on graph after last step
+    if (isLast) {
+      if (mode === 'dfa') activeStates = [step.next_state || step.current_state];
+      else activeStates = step.next_states || step.active_states || [];
+      drawGraph();
+    }
+  });
+}
+
+// ── Render Conversion ─────────────────────────────────────────────────────
+function renderConversion(data, nfaPayload) {
+  const dfa = data.dfa;
+  const steps = data.construction_steps;
+
+  // Draw the resulting DFA graph
+  setupGraph(dfa.states, dfa.transitions, dfa.accept_states, dfa.start_state, dfa.alphabet, 'dfa');
+  document.getElementById('graph-label').textContent = 'Converted DFA';
+
+  const conv = document.getElementById('conv-result');
+  conv.className = 'conversion-result show';
+
+  // Summary
+  const summary = document.createElement('div');
+  summary.style.cssText = 'font-family:var(--mono);font-size:12px;color:var(--muted);padding:4px 0;';
+  summary.textContent = `NFA states: ${data.summary.nfa_states_count} → DFA states: ${data.summary.dfa_states_count}`;
+  conv.appendChild(summary);
+
+  // DFA Transition Table
+  const tableWrap = document.createElement('div');
+  tableWrap.className = 'dfa-table';
+  let thead = `<thead><tr><th>State</th><th>Role</th>` + dfa.alphabet.map(a => `<th>${a}</th>`).join('') + `</tr></thead>`;
+  let tbody = '<tbody>' + dfa.states.map(s => {
+    const isAccept = dfa.accept_states.includes(s);
+    const isStart = s === dfa.start_state;
+    const rowClass = isAccept ? 'accept-row' : isStart ? 'start-row' : '';
+    const role = (isStart ? '→ ' : '') + (isAccept ? '* accept' : '');
+    const cells = dfa.alphabet.map(a => `<td>${(dfa.transitions[s] || {})[a] || '∅'}</td>`).join('');
+    return `<tr class="${rowClass}"><td>${s}</td><td>${role || '—'}</td>${cells}</tr>`;
+  }).join('') + '</tbody>';
+  tableWrap.innerHTML = `<table>${thead}${tbody}</table>`;
+  conv.appendChild(tableWrap);
+
+  // Construction steps
+  const stepsTitle = document.createElement('div');
+  stepsTitle.style.cssText = 'font-family:var(--mono);font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.8px;';
+  stepsTitle.textContent = 'Subset Construction Trace';
+  conv.appendChild(stepsTitle);
+
+  const stepsDiv = document.createElement('div');
+  stepsDiv.className = 'construction-steps';
+  steps.forEach(s => {
+    const el = document.createElement('div');
+    el.className = 'c-step ' + (s.action === 'new_state' ? 'new-state' : s.action === 'start' ? 'start' : '');
+    el.textContent = s.description;
+    stepsDiv.appendChild(el);
+  });
+  conv.appendChild(stepsDiv);
+
+  document.getElementById('steps-container').innerHTML = '';
+}
+
+// ── Graph Drawing ─────────────────────────────────────────────────────────
+function setupGraph(states, transitions, accept, start, alphabet, mode) {
+  graphStates = states;
+  graphAccept = accept;
+  graphStart = start;
+  graphAlphabet = alphabet;
+  // Build unified transitions map for drawing
+  graphTransitions = {};
+  if (mode === 'dfa') {
+    for (const [from, trans] of Object.entries(transitions)) {
+      for (const [sym, to] of Object.entries(trans)) {
+        const key = from + '→' + to;
+        if (!graphTransitions[key]) graphTransitions[key] = { from, to, labels: [] };
+        graphTransitions[key].labels.push(sym);
+      }
+    }
+  } else {
+    for (const [from, trans] of Object.entries(transitions)) {
+      for (const [sym, tos] of Object.entries(trans)) {
+        (tos || []).forEach(to => {
+          const key = from + '→' + to;
+          if (!graphTransitions[key]) graphTransitions[key] = { from, to, labels: [] };
+          graphTransitions[key].labels.push(sym);
+        });
+      }
+    }
+  }
+  document.getElementById('graph-label').textContent = mode.toUpperCase() + ' — ' + states.length + ' states';
+  drawGraph();
+}
+
+function drawGraph() {
+  const canvas = document.getElementById('graphCanvas');
+  const rect = canvas.parentElement.getBoundingClientRect();
+  canvas.width = rect.width || 600;
+  canvas.height = 260;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  if (!graphStates.length) return;
+
+  const W = canvas.width, H = canvas.height;
+  const n = graphStates.length;
+  const cx = W / 2, cy = H / 2;
+  const r = Math.min(W, H) * 0.32;
+  const nodeR = 28;
+
+  // Positions
+  const pos = {};
+  graphStates.forEach((s, i) => {
+    const angle = (2 * Math.PI * i / n) - Math.PI / 2;
+    pos[s] = { x: cx + r * Math.cos(angle), y: cy + r * Math.sin(angle) };
+    if (n === 1) { pos[s] = { x: cx, y: cy }; }
+    if (n === 2) { pos[s] = i === 0 ? { x: cx - 80, y: cy } : { x: cx + 80, y: cy }; }
+  });
+
+  // Draw edges
+  ctx.font = '600 12px JetBrains Mono, monospace';
+  for (const edge of Object.values(graphTransitions)) {
+    const from = pos[edge.from], to = pos[edge.to];
+    if (!from || !to) continue;
+    const label = edge.labels.join(', ');
+    const isSelf = edge.from === edge.to;
+
+    if (isSelf) {
+      // Self-loop
+      const lx = from.x, ly = from.y - nodeR - 30;
+      ctx.beginPath();
+      ctx.arc(lx, ly, 20, 0, 2 * Math.PI);
+      ctx.strokeStyle = '#1e2d45';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      ctx.fillStyle = '#64748b';
+      ctx.textAlign = 'center';
+      ctx.fillText(label, lx, ly - 26);
+    } else {
+      // Check for reverse edge
+      const revKey = edge.to + '→' + edge.from;
+      const hasReverse = graphTransitions[revKey];
+      const dx = to.x - from.x, dy = to.y - from.y;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      const ux = dx/dist, uy = dy/dist;
+      const nx = -uy, ny = ux;
+      const curve = hasReverse ? 30 : 0;
+
+      const sx = from.x + ux*nodeR + nx*curve;
+      const sy = from.y + uy*nodeR + ny*curve;
+      const ex = to.x - ux*nodeR + nx*curve;
+      const ey = to.y - uy*nodeR + ny*curve;
+      const cpx = (sx+ex)/2 + nx*curve;
+      const cpy = (sy+ey)/2 + ny*curve;
+
+      ctx.beginPath();
+      ctx.moveTo(sx, sy);
+      if (curve) ctx.quadraticCurveTo(cpx, cpy, ex, ey);
+      else ctx.lineTo(ex, ey);
+      ctx.strokeStyle = '#1e2d45';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      // Arrowhead
+      const angle = Math.atan2(ey - cpy, ex - cpx);
+      ctx.beginPath();
+      ctx.moveTo(ex, ey);
+      ctx.lineTo(ex - 10*Math.cos(angle-0.4), ey - 10*Math.sin(angle-0.4));
+      ctx.lineTo(ex - 10*Math.cos(angle+0.4), ey - 10*Math.sin(angle+0.4));
+      ctx.closePath();
+      ctx.fillStyle = '#1e2d45';
+      ctx.fill();
+
+      // Label
+      ctx.fillStyle = '#64748b';
+      ctx.textAlign = 'center';
+      ctx.fillText(label, cpx + nx*14, cpy + ny*14);
+    }
+  }
+
+  // Draw start arrow
+  if (graphStart && pos[graphStart]) {
+    const sp = pos[graphStart];
+    ctx.beginPath();
+    ctx.moveTo(sp.x - nodeR - 30, sp.y);
+    ctx.lineTo(sp.x - nodeR - 5, sp.y);
+    ctx.strokeStyle = '#00d4ff';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(sp.x - nodeR - 5, sp.y);
+    ctx.lineTo(sp.x - nodeR - 14, sp.y - 6);
+    ctx.lineTo(sp.x - nodeR - 14, sp.y + 6);
+    ctx.closePath();
+    ctx.fillStyle = '#00d4ff';
+    ctx.fill();
+  }
+
+  // Draw nodes
+  graphStates.forEach(s => {
+    const p = pos[s];
+    if (!p) return;
+    const isAccept = graphAccept.includes(s);
+    const isStart = s === graphStart;
+    const isActive = activeStates.includes(s);
+
+    // Glow for active
+    if (isActive) {
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, nodeR + 8, 0, 2*Math.PI);
+      ctx.fillStyle = 'rgba(245,158,11,0.15)';
+      ctx.fill();
+    }
+
+    // Circle
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, nodeR, 0, 2*Math.PI);
+    ctx.fillStyle = isActive ? 'rgba(245,158,11,0.2)' : (isAccept ? 'rgba(16,185,129,0.1)' : '#111827');
+    ctx.fill();
+    ctx.strokeStyle = isActive ? '#f59e0b' : (isAccept ? '#10b981' : (isStart ? '#00d4ff' : '#1e2d45'));
+    ctx.lineWidth = isActive ? 2.5 : 1.5;
+    ctx.stroke();
+
+    // Double circle for accept
+    if (isAccept) {
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, nodeR - 5, 0, 2*Math.PI);
+      ctx.strokeStyle = isActive ? '#f59e0b' : '#10b981';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+
+    // Label
+    ctx.fillStyle = isActive ? '#f59e0b' : (isAccept ? '#10b981' : '#e2e8f0');
+    ctx.font = '600 13px JetBrains Mono, monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(s, p.x, p.y);
+  });
+}
+
+// ── Presets ───────────────────────────────────────────────────────────────
+async function loadDFAPreset(idx) {
+  try {
+    const res = await fetch(API + '/examples');
+    const data = await res.json();
+    const ex = data.dfa_examples[idx];
+    document.getElementById('dfa-states').value = ex.states.join(', ');
+    document.getElementById('dfa-alpha').value = ex.alphabet.join(', ');
+    document.getElementById('dfa-start').value = ex.start_state;
+    document.getElementById('dfa-accept').value = ex.accept_states.join(', ');
+    let trans = '';
+    for (const [from, t] of Object.entries(ex.transitions))
+      for (const [sym, to] of Object.entries(t))
+        trans += `${from},${sym},${to}\n`;
+    document.getElementById('dfa-trans').value = trans.trim();
+    clearResults();
+  } catch(e) {}
+}
+
+async function loadNFAPreset(idx) {
+  try {
+    const res = await fetch(API + '/examples');
+    const data = await res.json();
+    const ex = data.nfa_examples[idx];
+    document.getElementById('nfa-states').value = ex.states.join(', ');
+    document.getElementById('nfa-alpha').value = ex.alphabet.join(', ');
+    document.getElementById('nfa-start').value = ex.start_state;
+    document.getElementById('nfa-accept').value = ex.accept_states.join(', ');
+    let trans = '';
+    for (const [from, t] of Object.entries(ex.transitions))
+      for (const [sym, tos] of Object.entries(t))
+        trans += `${from},${sym},${tos.join(';')}\n`;
+    document.getElementById('nfa-trans').value = trans.trim();
+    clearResults();
+  } catch(e) {}
+}
+
+// Initial graph draw
+window.addEventListener('resize', drawGraph);
+</script>
+</body>
+</html>

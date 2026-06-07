@@ -1,0 +1,1787 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>AutomataViz — DFA/NFA Simulator</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600;700&family=Space+Grotesk:wght@300;400;600;700&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg: #07101a;
+    --surface: rgba(9,12,21,0.96);
+    --surface2: rgba(18,27,46,0.96);
+    --border: rgba(255,255,255,0.08);
+    --accent: #00d4ff;
+    --accent2: #8b5cf6;
+    --success: #22c55e;
+    --danger: #fb7185;
+    --text: #eef2ff;
+    --muted: #8f9bb3;
+    --mono: 'JetBrains Mono', monospace;
+    --sans: 'Space Grotesk', sans-serif;
+  }
+
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  html, body {
+    min-height: 100%;
+    background: radial-gradient(circle at top left, rgba(0,212,255,0.16), transparent 24%),
+                radial-gradient(circle at bottom right, rgba(139,92,246,0.18), transparent 20%),
+                linear-gradient(180deg, #05070e 0%, #09111d 100%);
+    color: var(--text);
+    font-family: var(--sans);
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+    background-size: 42px 42px;
+    opacity: 0.16;
+    pointer-events: none;
+  }
+
+  #particleCanvas {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    opacity: 0.68;
+  }
+
+  .theme-toggle {
+    border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(255,255,255,0.06);
+    color: var(--text);
+    padding: 11px 16px;
+    border-radius: 999px;
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 0.22s ease, background 0.22s ease, color 0.22s ease, box-shadow 0.22s ease;
+    min-width: 54px;
+  }
+
+  .theme-toggle:hover {
+    transform: translateY(-1px);
+    background: rgba(255,255,255,0.14);
+  }
+
+  .theme-toggle:focus {
+    outline: none;
+    box-shadow: 0 0 0 4px rgba(0,212,255,0.16);
+  }
+
+  .header-left {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .subtitle {
+    font-size: 14px;
+    color: #94a3b8;
+    max-width: 560px;
+    line-height: 1.7;
+  }
+
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+
+  .hero-panel {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 18px;
+    padding: 24px 40px 0;
+    margin-top: 8px;
+  }
+
+  .hero-card {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 22px 24px;
+    border-radius: 26px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.12);
+    box-shadow: 0 28px 80px rgba(0,0,0,0.14);
+    backdrop-filter: blur(18px);
+  }
+
+  .hero-card strong {
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    color: #fff;
+  }
+
+  .hero-card span {
+    color: #94a3b8;
+    font-size: 13px;
+    line-height: 1.6;
+    font-family: var(--mono);
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+  }
+
+  .hero-note {
+    color: #cbd5e1;
+    font-size: 14px;
+    line-height: 1.7;
+    font-family: var(--mono);
+  }
+
+  .hero-card.highlight {
+    background: linear-gradient(135deg, rgba(0,212,255,0.18), rgba(139,92,246,0.18));
+    border-color: rgba(0,212,255,0.18);
+  }
+
+  .app {
+    position: relative;
+    z-index: 1;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    padding-bottom: 24px;
+  }
+
+  body.light {
+    background: radial-gradient(circle at top left, rgba(59,130,246,0.16), transparent 24%),
+                radial-gradient(circle at bottom right, rgba(236,72,153,0.16), transparent 22%),
+                linear-gradient(180deg, #eff6ff 0%, #e2e8f0 100%);
+    color: #0f172a;
+  }
+
+  body.light header {
+    background: rgba(255,255,255,0.92);
+    border-color: rgba(148,163,184,0.22);
+  }
+
+  body.light .panel-left,
+  body.light .panel-right {
+    background: rgba(255,255,255,0.95);
+    border-color: rgba(148,163,184,0.18);
+  }
+
+  body.light .tab {
+    background: rgba(15,23,42,0.08);
+    color: #475569;
+  }
+
+  body.light .tab.active {
+    background: rgba(59,130,246,0.18);
+    color: #0f172a;
+    box-shadow: inset 0 0 0 1px rgba(59,130,246,0.22);
+  }
+
+  body.light input,
+  body.light textarea {
+    background: rgba(255,255,255,0.96);
+    border-color: rgba(148,163,184,0.24);
+    color: #0f172a;
+  }
+
+  body.light .preset-btn {
+    background: rgba(15,23,42,0.06);
+    color: #0f172a;
+    border-color: rgba(148,163,184,0.18);
+  }
+
+  body.light .run-btn {
+    background: linear-gradient(135deg, #0ea5e9, #2563eb);
+    color: #fff;
+  }
+
+  body.light .convert-btn {
+    background: linear-gradient(135deg, #8b5cf6, #4338ca);
+    color: #fff;
+  }
+
+  .app {
+    position: relative;
+    z-index: 1;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  header {
+    padding: 24px 40px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 24px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(7,11,20,0.92);
+    backdrop-filter: blur(22px);
+    box-shadow: 0 24px 80px rgba(0,0,0,0.25);
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .logo-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 16px;
+    background: linear-gradient(135deg, rgba(0,212,255,0.95), rgba(139,92,246,0.9));
+    display: grid;
+    place-items: center;
+    box-shadow: 0 20px 60px rgba(0,212,255,0.18);
+    font-size: 18px;
+  }
+
+  .logo-text {
+    font-size: 28px;
+    font-weight: 900;
+    letter-spacing: -1px;
+    text-transform: uppercase;
+  }
+
+  .logo-text span {
+    color: var(--accent);
+  }
+
+  .badge {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 700;
+    padding: 8px 14px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: var(--accent);
+  }
+
+  .creator-badge {
+    position: fixed;
+    right: 24px;
+    bottom: 24px;
+    z-index: 120;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 16px 18px;
+    border-radius: 28px;
+    background: rgba(6,10,18,0.95);
+    border: 1px solid rgba(255,255,255,0.12);
+    box-shadow: 0 24px 60px rgba(0,0,0,0.22);
+    backdrop-filter: blur(16px);
+    transition: transform 0.24s ease, box-shadow 0.24s ease, border-color 0.24s ease;
+  }
+
+  .creator-badge:hover {
+    transform: translateY(-3px) scale(1.01);
+    border-color: rgba(56,189,248,0.28);
+    box-shadow: 0 28px 72px rgba(0,0,0,0.26), 0 0 0 1px rgba(56,189,248,0.08);
+  }
+
+  .creator-badge:hover .creator-avatar {
+    box-shadow: 0 16px 32px rgba(56,189,248,0.28);
+  }
+
+  .creator-avatar {
+    width: 44px;
+    height: 44px;
+    flex-shrink: 0;
+    position: relative;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #0ea5e9, #8b5cf6);
+    color: #fff;
+    display: grid;
+    place-items: center;
+    font-family: var(--mono);
+    font-size: 14px;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    box-shadow: 0 12px 28px rgba(14,165,233,0.24);
+    overflow: hidden;
+  }
+
+  .creator-avatar-photo {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  .creator-avatar-fallback {
+    position: relative;
+    z-index: 1;
+  }
+
+  .creator-details {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .creator-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: #94a3b8;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+
+  .creator-name {
+    font-size: 14px;
+    font-weight: 800;
+    color: #eef2ff;
+  }
+
+  @media (max-width: 720px) {
+    .creator-badge {
+      right: 16px;
+      bottom: 16px;
+      width: calc(100% - 32px);
+      justify-content: center;
+    }
+  }
+
+  main {
+    flex: 1;
+    display: grid;
+    grid-template-columns: minmax(420px, 480px) 1fr;
+    gap: 26px;
+    padding: 26px 36px 36px;
+    min-height: calc(100vh - 116px);
+  }
+
+  .panel-left,
+  .panel-right {
+    border-radius: 32px;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(8,12,22,0.92);
+    box-shadow: 0 30px 110px rgba(0,0,0,0.28);
+    overflow: hidden;
+    backdrop-filter: blur(12px);
+  }
+
+  .panel-left {
+    position: relative;
+    background: linear-gradient(180deg, rgba(12,16,30,0.96), rgba(9,12,21,0.92));
+  }
+
+  .panel-left::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at top left, rgba(0,212,255,0.16), transparent 18%),
+                radial-gradient(circle at bottom right, rgba(139,92,246,0.14), transparent 16%);
+    pointer-events: none;
+  }
+
+  .panel-left > *,
+  .panel-right > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  .tabs {
+    display: flex;
+    gap: 12px;
+    padding: 22px 24px 18px;
+    background: rgba(255,255,255,0.05);
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+
+  .tab {
+    flex: 1;
+    padding: 16px 18px;
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 800;
+    cursor: pointer;
+    border: 1px solid transparent;
+    border-radius: 18px;
+    background: rgba(255,255,255,0.05);
+    color: var(--muted);
+    letter-spacing: 0.14em;
+    transition: all 0.24s ease;
+    text-transform: uppercase;
+  }
+
+  .tab.active {
+    color: #fff;
+    background: linear-gradient(135deg, rgba(0,212,255,0.24), rgba(139,92,246,0.24));
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08);
+    border-color: rgba(255,255,255,0.12);
+  }
+
+  .tab:hover:not(.active) {
+    color: #fff;
+    background: rgba(255,255,255,0.1);
+    transform: translateY(-1px);
+  }
+
+  .form-section {
+    padding: 24px 24px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .field-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  label {
+    font-size: 12px;
+    font-weight: 800;
+    color: #9ca3af;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    font-family: var(--mono);
+  }
+
+  input,
+  textarea {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.12);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 14px;
+    padding: 16px 20px;
+    border-radius: 18px;
+    outline: none;
+    transition: border-color 0.25s ease, box-shadow 0.25s ease, transform 0.25s ease;
+  }
+
+  input:hover,
+  textarea:hover {
+    transform: translateY(-1px);
+  }
+
+  input:focus,
+  textarea:focus {
+    border-color: rgba(0,212,255,0.72);
+    box-shadow: 0 0 0 6px rgba(0,212,255,0.12);
+  }
+
+  textarea {
+    resize: vertical;
+    min-height: 130px;
+    line-height: 1.8;
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: rgba(238,242,255,0.56);
+  }
+
+  .hint {
+    font-size: 11px;
+    color: #94a3b8;
+    font-family: var(--mono);
+  }
+
+  .preset-bar {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding: 18px 22px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.03);
+  }
+
+  .preset-bar span {
+    font-size: 11px;
+    color: #94a3b8;
+    font-family: var(--mono);
+  }
+
+  .preset-btn {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 800;
+    padding: 12px 18px;
+    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(255,255,255,0.06);
+    color: var(--text);
+    cursor: pointer;
+    transition: all 0.22s ease;
+    white-space: nowrap;
+  }
+
+  .preset-btn:hover {
+    border-color: rgba(0,212,255,0.28);
+    color: var(--accent);
+    background: rgba(0,212,255,0.14);
+    transform: translateY(-1px);
+  }
+
+  .run-btn {
+    margin: 0 22px 28px;
+    padding: 18px;
+    border-radius: 22px;
+    border: none;
+    cursor: pointer;
+    font-family: var(--mono);
+    font-size: 14px;
+    font-weight: 900;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    background: linear-gradient(135deg, #00d4ff, #7c3aed);
+    color: #fff;
+    box-shadow: 0 24px 60px rgba(0,212,255,0.24);
+    transition: transform 0.22s ease, box-shadow 0.22s ease;
+  }
+
+  .run-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 30px 72px rgba(0,212,255,0.28);
+  }
+
+  .run-btn:active {
+    transform: translateY(0);
+  }
+
+  .run-btn.loading {
+    opacity: 0.82;
+    pointer-events: none;
+  }
+
+  .convert-btn {
+    margin: 0 22px 28px;
+    padding: 16px;
+    border-radius: 22px;
+    border: none;
+    cursor: pointer;
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 800;
+    background: linear-gradient(135deg, rgba(139,92,246,0.3), rgba(59,130,246,0.34));
+    color: #eef2ff;
+    box-shadow: 0 18px 42px rgba(139,92,246,0.18);
+    transition: transform 0.22s ease, box-shadow 0.22s ease, background 0.22s ease;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+  }
+
+  .convert-btn:hover {
+    transform: translateY(-1px);
+    background: linear-gradient(135deg, rgba(139,92,246,0.42), rgba(59,130,246,0.4));
+    box-shadow: 0 24px 52px rgba(139,92,246,0.22);
+  }
+
+  .panel-right {
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    background: rgba(7,11,20,0.95);
+  }
+
+  .graph-container {
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    background: linear-gradient(180deg, rgba(7,10,20,0.95), rgba(11,16,28,0.99));
+    position: relative;
+    min-height: 340px;
+    display: flex;
+    flex-direction: column;
+    border-radius: 30px;
+    overflow: hidden;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.03), 0 16px 48px rgba(0,0,0,0.15);
+  }
+
+  .graph-container::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at 25% 20%, rgba(0,212,255,0.08), transparent 20%),
+                radial-gradient(circle at 75% 80%, rgba(139,92,246,0.1), transparent 18%);
+    pointer-events: none;
+  }
+
+  .section-header {
+    padding: 22px 28px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+
+  .section-title {
+    font-size: 12px;
+    font-weight: 700;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    font-family: var(--mono);
+  }
+
+  #graphCanvas {
+    width: 100%;
+    flex: 1;
+    min-height: 280px;
+  }
+
+  .result-banner {
+    display: none;
+    margin: 20px 24px 0;
+    padding: 18px 20px;
+    border-radius: 24px;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.06);
+    background: rgba(15,23,42,0.88);
+    font-family: var(--mono);
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .result-banner.accepted {
+    background: linear-gradient(180deg, rgba(34,197,94,0.18), rgba(15,23,42,0.9));
+    border: 1px solid rgba(34,197,94,0.24);
+    color: var(--success);
+  }
+
+  .result-banner.rejected {
+    background: linear-gradient(180deg, rgba(251,114,133,0.18), rgba(15,23,42,0.9));
+    border: 1px solid rgba(251,114,133,0.24);
+    color: var(--danger);
+  }
+
+  .result-banner.show {
+    display: flex;
+  }
+
+  .result-icon {
+    font-size: 22px;
+  }
+
+  .steps-container {
+    padding: 20px 24px 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .step-card {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 22px;
+    padding: 18px 20px;
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    overflow: hidden;
+    transition: transform 0.25s ease, border-color 0.25s ease;
+  }
+
+  .step-card:hover {
+    transform: translateY(-2px);
+  }
+
+  .step-card.active-step {
+    border-color: rgba(245,158,11,0.5);
+    background: rgba(245,158,11,0.08);
+  }
+
+  .step-card.final-accept {
+    border-color: rgba(34,197,94,0.5);
+    background: rgba(34,197,94,0.08);
+  }
+
+  .step-card.final-reject {
+    border-color: rgba(251,114,133,0.5);
+    background: rgba(251,114,133,0.08);
+  }
+
+  .step-num {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    background: rgba(255,255,255,0.06);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 800;
+  }
+
+  .step-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .step-state {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  .step-detail {
+    font-size: 12px;
+    color: #94a3b8;
+    line-height: 1.7;
+  }
+
+  .step-note {
+    font-size: 11px;
+    color: var(--accent2);
+    line-height: 1.6;
+  }
+
+  .arrow-sym {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 3px 8px;
+    border-radius: 999px;
+    background: rgba(0,212,255,0.14);
+    color: var(--accent);
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+  }
+
+  .conversion-result {
+    padding: 20px 24px 24px;
+    display: none;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  .conversion-result.show {
+    display: flex;
+  }
+
+  .dfa-table {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 22px;
+    overflow: hidden;
+    font-family: var(--mono);
+    font-size: 12px;
+  }
+
+  .dfa-table table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .dfa-table th {
+    padding: 14px 16px;
+    text-align: left;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: #94a3b8;
+    background: rgba(255,255,255,0.04);
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+
+  .dfa-table td {
+    padding: 14px 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    color: var(--text);
+  }
+
+  .dfa-table tr:last-child td {
+    border-bottom: none;
+  }
+
+  .dfa-table .accept-row td {
+    color: var(--success);
+  }
+
+  .dfa-table .start-row td {
+    color: var(--accent);
+  }
+
+  .construction-steps {
+    display: grid;
+    gap: 12px;
+    max-height: 260px;
+    overflow-y: auto;
+    padding-right: 4px;
+  }
+
+  .c-step {
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 12px 14px;
+    border-radius: 18px;
+    background: rgba(255,255,255,0.04);
+    border-left: 3px solid rgba(255,255,255,0.08);
+    color: #94a3b8;
+    line-height: 1.6;
+  }
+
+  .c-step.new-state {
+    border-left-color: var(--accent2);
+    color: var(--accent2);
+  }
+
+  .c-step.start {
+    border-left-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .error-box {
+    display: none;
+    margin: 20px 24px;
+    padding: 18px 20px;
+    border-radius: 22px;
+    background: rgba(251,114,133,0.14);
+    border: 1px solid rgba(251,114,133,0.3);
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--danger);
+  }
+
+  .error-box.show {
+    display: block;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: rgba(148,163,184,0.25);
+    border-radius: 999px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(148,163,184,0.4);
+  }
+
+  .placeholder {
+    padding: 80px 24px;
+    text-align: center;
+    color: #94a3b8;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .placeholder-icon {
+    font-size: 56px;
+    opacity: 0.25;
+  }
+
+  .placeholder-text {
+    font-size: 15px;
+    font-family: var(--mono);
+    line-height: 1.8;
+  }
+
+  @media (max-width: 980px) {
+    main {
+      grid-template-columns: 1fr;
+      padding: 22px;
+      min-height: auto;
+    }
+
+    header {
+      padding: 22px 20px;
+    }
+
+    .panel-left,
+    .panel-right {
+      border-radius: 28px;
+    }
+
+    .tab {
+      font-size: 12px;
+    }
+  }
+
+  @media (max-width: 720px) {
+    .run-btn,
+    .convert-btn {
+      width: calc(100% - 32px);
+      margin: 18px 16px;
+    }
+
+    .form-section,
+    .preset-bar {
+      padding: 16px;
+    }
+
+    .tabs {
+      padding: 16px 18px 14px;
+      gap: 10px;
+    }
+  }
+</style></head>
+<body>
+<canvas id="particleCanvas"></canvas>
+<div class="app">
+  <header>
+    <div class="header-left">
+      <div class="logo">
+        <div class="logo-icon">⚙</div>
+        <div>
+          <div class="logo-text">Automata<span>Viz</span></div>
+          <div class="subtitle">Simulate DFA/NFA automata, trace execution, and convert automata with clarity and precision.</div>
+        </div>
+      </div>
+    </div>
+    <div class="header-actions">
+      <span class="badge">TOA Project — NUTech</span>
+      <button id="theme-toggle" class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme">🌙</button>
+    </div>
+  </header>
+
+  <section class="hero-panel">
+    <div class="hero-card highlight">
+      <span id="hero-tag-1">Instant automaton insight</span>
+      <strong id="hero-title-1">Live simulation feedback</strong>
+      <div class="hero-note" id="hero-note-1">Ready to compute transitions and state acceptance.</div>
+    </div>
+    <div class="hero-card">
+      <span id="hero-tag-2">Precision conversion</span>
+      <strong id="hero-title-2">Subset construction visualized</strong>
+      <div class="hero-note" id="hero-note-2">Convert NFA to DFA with clear state tracing.</div>
+    </div>
+    <div class="hero-card">
+      <span id="hero-tag-3">Rich state graph</span>
+      <strong id="hero-title-3">Dynamic node transition map</strong>
+      <div class="hero-note" id="hero-note-3">Drawn in real time as automata evolve.</div>
+    </div>
+  </section>
+
+  <main>
+    <!-- LEFT PANEL -->
+    <div class="panel-left">
+      <div class="tabs">
+        <button class="tab active" onclick="switchTab('dfa')">DFA</button>
+        <button class="tab" onclick="switchTab('nfa')">NFA / ε-NFA</button>
+        <button class="tab" onclick="switchTab('convert')">NFA→DFA</button>
+      </div>
+
+      <!-- DFA FORM -->
+      <div id="tab-dfa" class="tab-content">
+        <div class="preset-bar">
+          <span style="font-size:10px;color:var(--muted);font-family:var(--mono);align-self:center;">Presets:</span>
+          <button class="preset-btn" onclick="loadDFAPreset(0)">ends in 01</button>
+          <button class="preset-btn" onclick="loadDFAPreset(1)">even 0s</button>
+        </div>
+        <div class="form-section">
+          <div class="field-group">
+            <label>States (comma separated)</label>
+            <input id="dfa-states" type="text" placeholder="q0, q1, q2" value="q0, q1, q2"/>
+          </div>
+          <div class="field-group">
+            <label>Alphabet (comma separated)</label>
+            <input id="dfa-alpha" type="text" placeholder="0, 1" value="0, 1"/>
+          </div>
+          <div class="field-group">
+            <label>Start State</label>
+            <input id="dfa-start" type="text" placeholder="q0" value="q0"/>
+          </div>
+          <div class="field-group">
+            <label>Accept States (comma separated)</label>
+            <input id="dfa-accept" type="text" placeholder="q2" value="q2"/>
+          </div>
+          <div class="field-group">
+            <label>Transitions</label>
+            <span class="hint">Format: state,symbol,next — one per line</span>
+            <textarea id="dfa-trans" placeholder="q0,0,q1&#10;q0,1,q0">q0,0,q1
+q0,1,q0
+q1,0,q1
+q1,1,q2
+q2,0,q1
+q2,1,q0</textarea>
+          </div>
+          <div class="field-group">
+            <label>Input String</label>
+            <input id="dfa-input" type="text" placeholder="e.g. 1001" value="1001"/>
+          </div>
+        </div>
+        <button class="run-btn" onclick="runDFA()">▶ Simulate DFA</button>
+      </div>
+
+      <!-- NFA FORM -->
+      <div id="tab-nfa" class="tab-content" style="display:none;">
+        <div class="preset-bar">
+          <span style="font-size:10px;color:var(--muted);font-family:var(--mono);align-self:center;">Presets:</span>
+          <button class="preset-btn" onclick="loadNFAPreset(0)">ends in ab</button>
+        </div>
+        <div class="form-section">
+          <div class="field-group">
+            <label>States</label>
+            <input id="nfa-states" type="text" placeholder="q0, q1, q2" value="q0, q1, q2"/>
+          </div>
+          <div class="field-group">
+            <label>Alphabet (use ε for epsilon)</label>
+            <input id="nfa-alpha" type="text" placeholder="a, b, ε" value="a, b, ε"/>
+          </div>
+          <div class="field-group">
+            <label>Start State</label>
+            <input id="nfa-start" type="text" placeholder="q0" value="q0"/>
+          </div>
+          <div class="field-group">
+            <label>Accept States</label>
+            <input id="nfa-accept" type="text" placeholder="q2" value="q2"/>
+          </div>
+          <div class="field-group">
+            <label>Transitions</label>
+            <span class="hint">Format: state,symbol,next1;next2 — one per line</span>
+            <textarea id="nfa-trans" placeholder="q0,a,q0;q1">q0,a,q0;q1
+q0,b,q0
+q1,b,q2</textarea>
+          </div>
+          <div class="field-group">
+            <label>Input String</label>
+            <input id="nfa-input" type="text" placeholder="e.g. aab" value="aab"/>
+          </div>
+        </div>
+        <button class="run-btn" onclick="runNFA()">▶ Simulate NFA</button>
+      </div>
+
+      <!-- CONVERT FORM -->
+      <div id="tab-convert" class="tab-content" style="display:none;">
+        <div class="form-section">
+          <p style="font-size:12px;color:var(--muted);font-family:var(--mono);line-height:1.6;">
+            Enter an NFA below. The system will apply <strong style="color:var(--accent2)">Subset Construction</strong> to produce an equivalent DFA, showing every step.
+          </p>
+          <div class="field-group">
+            <label>NFA States</label>
+            <input id="conv-states" type="text" placeholder="q0, q1, q2" value="q0, q1, q2"/>
+          </div>
+          <div class="field-group">
+            <label>Alphabet</label>
+            <input id="conv-alpha" type="text" placeholder="a, b" value="a, b"/>
+          </div>
+          <div class="field-group">
+            <label>Start State</label>
+            <input id="conv-start" type="text" placeholder="q0" value="q0"/>
+          </div>
+          <div class="field-group">
+            <label>Accept States</label>
+            <input id="conv-accept" type="text" placeholder="q2" value="q2"/>
+          </div>
+          <div class="field-group">
+            <label>Transitions (state,symbol,next1;next2)</label>
+            <textarea id="conv-trans">q0,a,q0;q1
+q0,b,q0
+q1,b,q2</textarea>
+          </div>
+        </div>
+        <button class="convert-btn" onclick="runConvert()">⚡ Convert NFA → DFA</button>
+      </div>
+    </div>
+
+    <!-- RIGHT PANEL -->
+    <div class="panel-right" id="right-panel">
+      <!-- Graph -->
+      <div class="graph-container">
+        <div class="section-header">
+          <span class="section-title">State Graph</span>
+          <span id="graph-label" style="font-family:var(--mono);font-size:11px;color:var(--muted);">—</span>
+        </div>
+        <canvas id="graphCanvas"></canvas>
+      </div>
+
+      <!-- Error -->
+      <div class="error-box" id="error-box"></div>
+
+      <!-- Result Banner -->
+      <div class="result-banner" id="result-banner">
+        <span class="result-icon"></span>
+        <div>
+          <div id="result-title"></div>
+          <div id="result-reason" style="font-size:11px;font-weight:400;margin-top:3px;opacity:0.7;"></div>
+        </div>
+      </div>
+
+      <!-- Steps -->
+      <div class="steps-container" id="steps-container">
+        <div class="placeholder">
+          <div class="placeholder-icon">⟳</div>
+          <div class="placeholder-text">Define your automaton and run a simulation</div>
+        </div>
+      </div>
+
+      <!-- Conversion Result -->
+      <div class="conversion-result" id="conv-result"></div>
+    </div>
+  </main>
+</div>
+
+<div class="creator-badge">
+  <div class="creator-avatar">
+    <picture>
+      <source srcset="creator.jpg" type="image/jpeg">
+      <img src="creator.jpg" alt="Muhammad Abdullah" class="creator-avatar-photo" onerror="this.style.display='none'" />
+    </picture>
+    <span class="creator-avatar-fallback">MA</span>
+  </div>
+  <div class="creator-details">
+    <div class="creator-label">Created by</div>
+    <div class="creator-name">Muhammad Abdullah</div>
+  </div>
+</div>
+
+<script>
+const API = '';  // Same-origin
+let currentTab = 'dfa';
+let graphStates = [];
+let graphTransitions = {};
+let graphAccept = [];
+let graphStart = '';
+let activeStates = [];
+let graphAlphabet = [];
+let graphTime = 0;
+
+// ── Tab Switching ─────────────────────────────────────────────────────────
+function switchTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.tab').forEach((t, i) => {
+    t.classList.toggle('active', ['dfa','nfa','convert'][i] === tab);
+  });
+  document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
+  document.getElementById('tab-' + tab).style.display = 'flex';
+  document.getElementById('tab-' + tab).style.flexDirection = 'column';
+  clearResults();
+}
+
+// ── Parse helpers ─────────────────────────────────────────────────────────
+function parseList(s) { return s.split(',').map(x => x.trim()).filter(Boolean); }
+
+function parseDFATrans(s) {
+  const t = {};
+  s.trim().split('\n').forEach(line => {
+    line = line.trim(); if (!line) return;
+    const [from, sym, to] = line.split(',').map(x => x.trim());
+    if (!t[from]) t[from] = {};
+    t[from][sym] = to;
+  });
+  return t;
+}
+
+function parseNFATrans(s) {
+  const t = {};
+  s.trim().split('\n').forEach(line => {
+    line = line.trim(); if (!line) return;
+    const parts = line.split(',').map(x => x.trim());
+    const from = parts[0], sym = parts[1], nexts = parts[2] ? parts[2].split(';').map(x => x.trim()) : [];
+    if (!t[from]) t[from] = {};
+    t[from][sym] = nexts;
+  });
+  return t;
+}
+
+// ── Clear ─────────────────────────────────────────────────────────────────
+function clearResults() {
+  document.getElementById('error-box').className = 'error-box';
+  document.getElementById('result-banner').className = 'result-banner';
+  document.getElementById('steps-container').innerHTML = `<div class="placeholder"><div class="placeholder-icon">⟳</div><div class="placeholder-text">Define your automaton and run a simulation</div></div>`;
+  document.getElementById('conv-result').className = 'conversion-result';
+  activeStates = [];
+  updateHeroStats({
+    tag1: 'Instant automaton insight',
+    title1: 'Live simulation feedback',
+    note1: 'Ready to compute transitions and state acceptance.',
+    tag2: 'Precision conversion',
+    title2: 'Subset construction visualized',
+    note2: 'Convert NFA to DFA with clear state tracing.',
+    tag3: 'Rich state graph',
+    title3: 'Dynamic node transition map',
+    note3: 'Drawn in real time as automata evolve.'
+  });
+  drawGraph();
+}
+
+function setHeroCard(index, tag, title, note) {
+  const tagEl = document.getElementById(`hero-tag-${index}`);
+  const titleEl = document.getElementById(`hero-title-${index}`);
+  const noteEl = document.getElementById(`hero-note-${index}`);
+  if (tagEl) tagEl.textContent = tag;
+  if (titleEl) titleEl.textContent = title;
+  if (noteEl) noteEl.textContent = note;
+}
+
+function updateHeroStats(data = {}) {
+  setHeroCard(1, data.tag1 || 'Instant automaton insight', data.title1 || 'Live simulation feedback', data.note1 || 'Ready to compute transitions and state acceptance.');
+  setHeroCard(2, data.tag2 || 'Precision conversion', data.title2 || 'Subset construction visualized', data.note2 || 'Convert NFA to DFA with clear state tracing.');
+  setHeroCard(3, data.tag3 || 'Rich state graph', data.title3 || 'Dynamic node transition map', data.note3 || 'Drawn in real time as automata evolve.');
+}
+
+// ── Error ──────────────────────────────────────────────────────────────────
+function showError(msg) {
+  const box = document.getElementById('error-box');
+  box.textContent = '⚠ ' + msg;
+  box.className = 'error-box show';
+}
+
+// ── DFA Simulation ────────────────────────────────────────────────────────
+async function runDFA() {
+  const btn = document.querySelector('#tab-dfa .run-btn');
+  btn.classList.add('loading'); btn.textContent = '⏳ Running...';
+  clearResults();
+
+  const payload = {
+    states: parseList(document.getElementById('dfa-states').value),
+    alphabet: parseList(document.getElementById('dfa-alpha').value),
+    transitions: parseDFATrans(document.getElementById('dfa-trans').value),
+    start_state: document.getElementById('dfa-start').value.trim(),
+    accept_states: parseList(document.getElementById('dfa-accept').value),
+    input_string: document.getElementById('dfa-input').value.trim()
+  };
+
+  setupGraph(payload.states, payload.transitions, payload.accept_states, payload.start_state, payload.alphabet, 'dfa');
+
+  try {
+    const res = await fetch(API + '/simulate/dfa', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+    const data = await res.json();
+    if (!data.success) { showError(data.errors.join('\n')); return; }
+    renderSteps(data.steps, data.accepted, data.reason, 'dfa');
+    updateHeroStats({
+      tag1: 'DFA execution complete',
+      title1: data.accepted ? 'String accepted' : 'String rejected',
+      note1: `${data.steps.length} transition step(s) · ${data.accepted ? 'Accepted' : 'Rejected'}`,
+      tag2: 'Input size',
+      title2: `${payload.states.length} states · ${payload.alphabet.length} symbols`,
+      note2: `Start: ${payload.start_state} · Accept: ${payload.accept_states.length}`,
+      tag3: 'Graph snapshot',
+      title3: `${graphStates.length} nodes rendered`,
+      note3: `${activeStates.length} active state(s) highlighted`
+    });
+  } catch(e) { showError('Connection error: ' + e.message); }
+  finally { btn.classList.remove('loading'); btn.textContent = '▶ Simulate DFA'; }
+}
+
+// ── NFA Simulation ────────────────────────────────────────────────────────
+async function runNFA() {
+  const btn = document.querySelector('#tab-nfa .run-btn');
+  btn.classList.add('loading'); btn.textContent = '⏳ Running...';
+  clearResults();
+
+  const payload = {
+    states: parseList(document.getElementById('nfa-states').value),
+    alphabet: parseList(document.getElementById('nfa-alpha').value),
+    transitions: parseNFATrans(document.getElementById('nfa-trans').value),
+    start_state: document.getElementById('nfa-start').value.trim(),
+    accept_states: parseList(document.getElementById('nfa-accept').value),
+    input_string: document.getElementById('nfa-input').value.trim()
+  };
+
+  setupGraph(payload.states, payload.transitions, payload.accept_states, payload.start_state, payload.alphabet, 'nfa');
+
+  try {
+    const res = await fetch(API + '/simulate/nfa', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+    const data = await res.json();
+    if (!data.success) { showError(data.errors.join('\n')); return; }
+    renderSteps(data.steps, data.accepted, data.reason, 'nfa');
+    updateHeroStats({
+      tag1: 'NFA execution complete',
+      title1: data.accepted ? 'String accepted' : 'String rejected',
+      note1: `${data.steps.length} transition step(s) · ${data.accepted ? 'Accepted' : 'Rejected'}`,
+      tag2: 'Input size',
+      title2: `${payload.states.length} states · ${payload.alphabet.length} symbols`,
+      note2: `Start: ${payload.start_state} · Accept: ${payload.accept_states.length}`,
+      tag3: 'Graph snapshot',
+      title3: `${graphStates.length} nodes rendered`,
+      note3: `${activeStates.length} active state(s) highlighted`
+    });
+  } catch(e) { showError('Connection error: ' + e.message); }
+  finally { btn.classList.remove('loading'); btn.textContent = '▶ Simulate NFA'; }
+}
+
+// ── Convert ───────────────────────────────────────────────────────────────
+async function runConvert() {
+  const btn = document.querySelector('.convert-btn');
+  btn.textContent = '⏳ Converting...';
+  clearResults();
+
+  const payload = {
+    states: parseList(document.getElementById('conv-states').value),
+    alphabet: parseList(document.getElementById('conv-alpha').value),
+    transitions: parseNFATrans(document.getElementById('conv-trans').value),
+    start_state: document.getElementById('conv-start').value.trim(),
+    accept_states: parseList(document.getElementById('conv-accept').value)
+  };
+
+  try {
+    const res = await fetch(API + '/convert/nfa-to-dfa', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+    const data = await res.json();
+    if (!data.success) { showError('Conversion failed'); return; }
+    renderConversion(data, payload);
+  } catch(e) { showError('Connection error: ' + e.message); }
+  finally { btn.textContent = '⚡ Convert NFA → DFA'; }
+}
+
+// ── Render Steps ──────────────────────────────────────────────────────────
+function renderSteps(steps, accepted, reason, mode) {
+  const container = document.getElementById('steps-container');
+  container.innerHTML = '';
+
+  const banner = document.getElementById('result-banner');
+  const icon = banner.querySelector('.result-icon');
+  const title = document.getElementById('result-title');
+  const reasonEl = document.getElementById('result-reason');
+
+  banner.className = 'result-banner show ' + (accepted ? 'accepted' : 'rejected');
+  icon.textContent = accepted ? '✓' : '✗';
+  title.textContent = accepted ? 'STRING ACCEPTED' : 'STRING REJECTED';
+  reasonEl.textContent = reason;
+
+  steps.forEach((step, idx) => {
+    const card = document.createElement('div');
+    const isLast = idx === steps.length - 1;
+    card.className = 'step-card' + (isLast ? (accepted ? ' final-accept' : ' final-reject') : '');
+    card.style.animationDelay = (idx * 60) + 'ms';
+
+    const numEl = document.createElement('div');
+    numEl.className = 'step-num';
+    numEl.textContent = step.step;
+
+    const body = document.createElement('div');
+    body.className = 'step-body';
+
+    if (mode === 'dfa') {
+      const state = step.next_state || step.current_state;
+      body.innerHTML = `<div class="step-state">${step.symbol_read ? `<span style="color:var(--muted)">${step.current_state}</span> <span class="arrow-sym">${step.symbol_read}</span> → ${step.next_state ?? '—'}` : `Start: ${step.current_state}`}</div>
+      <div class="step-detail">Remaining: <span style="color:var(--text)">"${step.remaining_input || '(end)'}"</span></div>`;
+    } else {
+      const active = step.active_states ? step.active_states.join(', ') : '—';
+      const next = step.next_states ? step.next_states.join(', ') : '—';
+      body.innerHTML = `<div class="step-state">${step.symbol_read ? `Read <span class="arrow-sym">${step.symbol_read}</span>` : 'Initial'}</div>
+      <div class="step-detail">Active: {${active}} → {${step.next_states ? next : active}}</div>
+      <div class="step-note">${step.note || ''}</div>`;
+    }
+
+    card.appendChild(numEl);
+    card.appendChild(body);
+    container.appendChild(card);
+
+    // Highlight active states on graph after last step
+    if (isLast) {
+      if (mode === 'dfa') activeStates = [step.next_state || step.current_state];
+      else activeStates = step.next_states || step.active_states || [];
+      drawGraph();
+    }
+  });
+}
+
+// ── Render Conversion ─────────────────────────────────────────────────────
+function renderConversion(data, nfaPayload) {
+  const dfa = data.dfa;
+  const steps = data.construction_steps;
+
+  // Draw the resulting DFA graph
+  setupGraph(dfa.states, dfa.transitions, dfa.accept_states, dfa.start_state, dfa.alphabet, 'dfa');
+  document.getElementById('graph-label').textContent = 'Converted DFA';
+
+  const conv = document.getElementById('conv-result');
+  conv.className = 'conversion-result show';
+
+  // Summary
+  const summary = document.createElement('div');
+  summary.style.cssText = 'font-family:var(--mono);font-size:12px;color:var(--muted);padding:4px 0;';
+  summary.textContent = `NFA states: ${data.summary.nfa_states_count} → DFA states: ${data.summary.dfa_states_count}`;
+  conv.appendChild(summary);
+
+  updateHeroStats({
+    tag1: 'Conversion complete',
+    title1: `${data.summary.dfa_states_count} DFA states`,
+    note1: `Generated from ${data.summary.nfa_states_count} NFA states`,
+    tag2: 'Graph preview',
+    title2: `${dfa.states.length} nodes · ${dfa.accept_states.length} accepts`,
+    note2: `Start: ${dfa.start_state} · Alphabet: ${dfa.alphabet.join(', ')}`,
+    tag3: 'Process trace',
+    title3: `${steps.length} subset steps`,
+    note3: `Conversion runs with full DFA construction detail`
+  });
+
+  // DFA Transition Table
+  const tableWrap = document.createElement('div');
+  tableWrap.className = 'dfa-table';
+  let thead = `<thead><tr><th>State</th><th>Role</th>` + dfa.alphabet.map(a => `<th>${a}</th>`).join('') + `</tr></thead>`;
+  let tbody = '<tbody>' + dfa.states.map(s => {
+    const isAccept = dfa.accept_states.includes(s);
+    const isStart = s === dfa.start_state;
+    const rowClass = isAccept ? 'accept-row' : isStart ? 'start-row' : '';
+    const role = (isStart ? '→ ' : '') + (isAccept ? '* accept' : '');
+    const cells = dfa.alphabet.map(a => `<td>${(dfa.transitions[s] || {})[a] || '∅'}</td>`).join('');
+    return `<tr class="${rowClass}"><td>${s}</td><td>${role || '—'}</td>${cells}</tr>`;
+  }).join('') + '</tbody>';
+  tableWrap.innerHTML = `<table>${thead}${tbody}</table>`;
+  conv.appendChild(tableWrap);
+
+  // Construction steps
+  const stepsTitle = document.createElement('div');
+  stepsTitle.style.cssText = 'font-family:var(--mono);font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.8px;';
+  stepsTitle.textContent = 'Subset Construction Trace';
+  conv.appendChild(stepsTitle);
+
+  const stepsDiv = document.createElement('div');
+  stepsDiv.className = 'construction-steps';
+  steps.forEach(s => {
+    const el = document.createElement('div');
+    el.className = 'c-step ' + (s.action === 'new_state' ? 'new-state' : s.action === 'start' ? 'start' : '');
+    el.textContent = s.description;
+    stepsDiv.appendChild(el);
+  });
+  conv.appendChild(stepsDiv);
+
+  document.getElementById('steps-container').innerHTML = '';
+}
+
+// ── Graph Drawing ─────────────────────────────────────────────────────────
+function setupGraph(states, transitions, accept, start, alphabet, mode) {
+  graphStates = states;
+  graphAccept = accept;
+  graphStart = start;
+  graphAlphabet = alphabet;
+  // Build unified transitions map for drawing
+  graphTransitions = {};
+  if (mode === 'dfa') {
+    for (const [from, trans] of Object.entries(transitions)) {
+      for (const [sym, to] of Object.entries(trans)) {
+        const key = from + '→' + to;
+        if (!graphTransitions[key]) graphTransitions[key] = { from, to, labels: [] };
+        graphTransitions[key].labels.push(sym);
+      }
+    }
+  } else {
+    for (const [from, trans] of Object.entries(transitions)) {
+      for (const [sym, tos] of Object.entries(trans)) {
+        (tos || []).forEach(to => {
+          const key = from + '→' + to;
+          if (!graphTransitions[key]) graphTransitions[key] = { from, to, labels: [] };
+          graphTransitions[key].labels.push(sym);
+        });
+      }
+    }
+  }
+  document.getElementById('graph-label').textContent = mode.toUpperCase() + ' — ' + states.length + ' states';
+  drawGraph();
+}
+
+function drawGraph() {
+  const canvas = document.getElementById('graphCanvas');
+  const rect = canvas.parentElement.getBoundingClientRect();
+  canvas.width = rect.width || 600;
+  canvas.height = 260;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  if (!graphStates.length) return;
+
+  const anim = graphTime;
+  const W = canvas.width, H = canvas.height;
+  const n = graphStates.length;
+  const cx = W / 2, cy = H / 2;
+  const r = Math.min(W, H) * 0.32;
+  const nodeR = 28;
+
+  // Positions
+  const pos = {};
+  graphStates.forEach((s, i) => {
+    const angle = (2 * Math.PI * i / n) - Math.PI / 2;
+    pos[s] = { x: cx + r * Math.cos(angle), y: cy + r * Math.sin(angle) };
+    if (n === 1) { pos[s] = { x: cx, y: cy }; }
+    if (n === 2) { pos[s] = i === 0 ? { x: cx - 80, y: cy } : { x: cx + 80, y: cy }; }
+  });
+
+  // Draw edges
+  ctx.font = '600 12px JetBrains Mono, monospace';
+  let edgeIndex = 0;
+  for (const edge of Object.values(graphTransitions)) {
+    const from = pos[edge.from], to = pos[edge.to];
+    if (!from || !to) continue;
+    const label = edge.labels.join(', ');
+    const isSelf = edge.from === edge.to;
+    const edgeActive = activeStates.includes(edge.from) || activeStates.includes(edge.to);
+
+    if (isSelf) {
+      // Self-loop
+      const lx = from.x, ly = from.y - nodeR - 30;
+      ctx.beginPath();
+      ctx.arc(lx, ly, 20, 0, 2 * Math.PI);
+      ctx.strokeStyle = '#1e2d45';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      ctx.fillStyle = '#64748b';
+      ctx.textAlign = 'center';
+      ctx.fillText(label, lx, ly - 26);
+    } else {
+      // Check for reverse edge
+      const revKey = edge.to + '→' + edge.from;
+      const hasReverse = graphTransitions[revKey];
+      const dx = to.x - from.x, dy = to.y - from.y;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      const ux = dx/dist, uy = dy/dist;
+      const nx = -uy, ny = ux;
+      const curve = hasReverse ? 30 : 0;
+
+      const sx = from.x + ux*nodeR + nx*curve;
+      const sy = from.y + uy*nodeR + ny*curve;
+      const ex = to.x - ux*nodeR + nx*curve;
+      const ey = to.y - uy*nodeR + ny*curve;
+      const cpx = (sx+ex)/2 + nx*curve;
+      const cpy = (sy+ey)/2 + ny*curve;
+
+      ctx.beginPath();
+      ctx.moveTo(sx, sy);
+      if (curve) ctx.quadraticCurveTo(cpx, cpy, ex, ey);
+      else ctx.lineTo(ex, ey);
+      ctx.strokeStyle = edgeActive ? `rgba(56,189,248,${0.35 + 0.25 * Math.abs(Math.sin(anim * 2 + edgeIndex))})` : '#1e2d45';
+      ctx.lineWidth = edgeActive ? 2.2 : 1.5;
+      ctx.stroke();
+
+      if (edgeActive) {
+        const t = (anim * 0.35 + edgeIndex * 0.18) % 1;
+        const px = sx + (ex - sx) * t;
+        const py = sy + (ey - sy) * t;
+        ctx.beginPath();
+        ctx.arc(px, py, 4, 0, 2 * Math.PI);
+        ctx.fillStyle = 'rgba(56,189,248,0.18)';
+        ctx.fill();
+      }
+
+      // Arrowhead
+      const angle = Math.atan2(ey - cpy, ex - cpx);
+      ctx.beginPath();
+      ctx.moveTo(ex, ey);
+      ctx.lineTo(ex - 10*Math.cos(angle-0.4), ey - 10*Math.sin(angle-0.4));
+      ctx.lineTo(ex - 10*Math.cos(angle+0.4), ey - 10*Math.sin(angle+0.4));
+      ctx.closePath();
+      ctx.fillStyle = edgeActive ? '#38bdf8' : '#1e2d45';
+      ctx.fill();
+
+      // Label
+      ctx.fillStyle = edgeActive ? '#93c5fd' : '#64748b';
+      ctx.textAlign = 'center';
+      ctx.fillText(label, cpx + nx*14, cpy + ny*14);
+      edgeIndex += 1;
+    }
+  }
+
+  // Draw start arrow
+  if (graphStart && pos[graphStart]) {
+    const sp = pos[graphStart];
+    ctx.beginPath();
+    ctx.moveTo(sp.x - nodeR - 30, sp.y);
+    ctx.lineTo(sp.x - nodeR - 5, sp.y);
+    ctx.strokeStyle = '#00d4ff';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(sp.x - nodeR - 5, sp.y);
+    ctx.lineTo(sp.x - nodeR - 14, sp.y - 6);
+    ctx.lineTo(sp.x - nodeR - 14, sp.y + 6);
+    ctx.closePath();
+    ctx.fillStyle = '#00d4ff';
+    ctx.fill();
+  }
+
+  // Draw nodes
+  graphStates.forEach(s => {
+    const p = pos[s];
+    if (!p) return;
+    const isAccept = graphAccept.includes(s);
+    const isStart = s === graphStart;
+    const isActive = activeStates.includes(s);
+
+    // Glow for active
+    const pulse = isActive ? 8 + 4 * Math.sin(anim * 3 + graphStates.indexOf(s) * 0.7) : 0;
+    if (isActive) {
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, nodeR + pulse, 0, 2*Math.PI);
+      ctx.fillStyle = `rgba(245,158,11,${0.12 + 0.08 * Math.sin(anim * 3)})`;
+      ctx.fill();
+    }
+
+    // Circle
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, nodeR, 0, 2*Math.PI);
+    ctx.fillStyle = isActive ? `rgba(245,158,11,${0.2 + 0.05 * Math.sin(anim * 2)})` : (isAccept ? 'rgba(16,185,129,0.1)' : '#111827');
+    ctx.fill();
+    ctx.strokeStyle = isActive ? '#f59e0b' : (isAccept ? '#10b981' : (isStart ? '#00d4ff' : '#1e2d45'));
+    ctx.lineWidth = isActive ? 2.5 : 1.5;
+    ctx.stroke();
+
+    // Double circle for accept
+    if (isAccept) {
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, nodeR - 5, 0, 2*Math.PI);
+      ctx.strokeStyle = isActive ? '#f59e0b' : '#10b981';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+
+    // Label
+    ctx.fillStyle = isActive ? '#f59e0b' : (isAccept ? '#10b981' : '#e2e8f0');
+    ctx.font = '600 13px JetBrains Mono, monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(s, p.x, p.y);
+  });
+}
+
+function animateGraph() {
+  graphTime = performance.now() * 0.001;
+  drawGraph();
+  requestAnimationFrame(animateGraph);
+}
+
+// ── Presets ───────────────────────────────────────────────────────────────
+async function loadDFAPreset(idx) {
+  try {
+    const res = await fetch(API + '/examples');
+    const data = await res.json();
+    const ex = data.dfa_examples[idx];
+    document.getElementById('dfa-states').value = ex.states.join(', ');
+    document.getElementById('dfa-alpha').value = ex.alphabet.join(', ');
+    document.getElementById('dfa-start').value = ex.start_state;
+    document.getElementById('dfa-accept').value = ex.accept_states.join(', ');
+    let trans = '';
+    for (const [from, t] of Object.entries(ex.transitions))
+      for (const [sym, to] of Object.entries(t))
+        trans += `${from},${sym},${to}\n`;
+    document.getElementById('dfa-trans').value = trans.trim();
+    clearResults();
+  } catch(e) {}
+}
+
+async function loadNFAPreset(idx) {
+  try {
+    const res = await fetch(API + '/examples');
+    const data = await res.json();
+    const ex = data.nfa_examples[idx];
+    document.getElementById('nfa-states').value = ex.states.join(', ');
+    document.getElementById('nfa-alpha').value = ex.alphabet.join(', ');
+    document.getElementById('nfa-start').value = ex.start_state;
+    document.getElementById('nfa-accept').value = ex.accept_states.join(', ');
+    let trans = '';
+    for (const [from, t] of Object.entries(ex.transitions))
+      for (const [sym, tos] of Object.entries(t))
+        trans += `${from},${sym},${tos.join(';')}\n`;
+    document.getElementById('nfa-trans').value = trans.trim();
+    clearResults();
+  } catch(e) {}
+}
+
+// Initial graph draw
+function resizeParticles() {
+  const canvas = document.getElementById('particleCanvas');
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+
+function random(min, max) {
+  return Math.random() * (max - min) + min;
+}
+
+const particles = [];
+function createParticles() {
+  const canvas = document.getElementById('particleCanvas');
+  particles.length = 0;
+  for (let i = 0; i < 70; i++) {
+    particles.push({
+      x: random(0, canvas.width),
+      y: random(0, canvas.height),
+      vx: random(-0.2, 0.2),
+      vy: random(-0.08, 0.08),
+      r: random(1.5, 3.7),
+      alpha: random(0.12, 0.28),
+      phase: random(0, Math.PI * 2)
+    });
+  }
+}
+
+function animateParticles() {
+  const canvas = document.getElementById('particleCanvas');
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  const time = performance.now() * 0.0009;
+  particles.forEach(p => {
+    p.x += p.vx;
+    p.y += Math.sin(time + p.phase) * 0.4 + p.vy;
+
+    if (p.x < -30) p.x = canvas.width + 30;
+    if (p.x > canvas.width + 30) p.x = -30;
+    if (p.y < -30) p.y = canvas.height + 30;
+    if (p.y > canvas.height + 30) p.y = -30;
+
+    const gradient = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r * 12);
+    gradient.addColorStop(0, `rgba(0,212,255,${p.alpha})`);
+    gradient.addColorStop(1, 'rgba(0,212,255,0)');
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r * 12, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  requestAnimationFrame(animateParticles);
+}
+
+function toggleTheme() {
+  const nextTheme = document.body.classList.toggle('light') ? 'light' : 'dark';
+  document.getElementById('theme-toggle').textContent = nextTheme === 'light' ? '🌙' : '☀️';
+  localStorage.setItem('automata-theme', nextTheme);
+}
+
+function initTheme() {
+  const savedTheme = localStorage.getItem('automata-theme');
+  if (savedTheme === 'light') {
+    document.body.classList.add('light');
+    document.getElementById('theme-toggle').textContent = '🌙';
+  } else {
+    document.body.classList.remove('light');
+    document.getElementById('theme-toggle').textContent = '☀️';
+  }
+}
+
+window.addEventListener('resize', () => {
+  drawGraph();
+  resizeParticles();
+});
+
+window.addEventListener('load', () => {
+  initTheme();
+  resizeParticles();
+  createParticles();
+  animateParticles();
+  animateGraph();
+  drawGraph();
+});
+</script>
+</body>
+</html>

@@ -906,6 +906,146 @@
     line-height: 1.8;
   }
 
+  .animation-controls {
+    display: none;
+    gap: 12px;
+    padding: 16px 24px;
+    border-top: 1px solid rgba(255,255,255,0.08);
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .animation-controls.show {
+    display: flex;
+  }
+
+  .control-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 16px;
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(255,255,255,0.06);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.22s ease;
+  }
+
+  .control-btn:hover {
+    background: rgba(255,255,255,0.12);
+    border-color: rgba(0,212,255,0.28);
+    transform: translateY(-1px);
+  }
+
+  .control-btn:active {
+    transform: translateY(0);
+  }
+
+  .control-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  .control-btn.play-btn.playing {
+    background: rgba(34,197,94,0.18);
+    border-color: rgba(34,197,94,0.28);
+    color: var(--success);
+  }
+
+  .step-indicator {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+    padding: 0 12px;
+    white-space: nowrap;
+  }
+
+  .speed-control {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px;
+    border-radius: 10px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+
+  .speed-control label {
+    font-size: 10px;
+    color: var(--muted);
+    white-space: nowrap;
+    margin: 0;
+  }
+
+  .speed-control input[type="range"] {
+    width: 80px;
+    height: 4px;
+    padding: 0;
+    cursor: pointer;
+  }
+
+  .input-display {
+    display: flex;
+    gap: 4px;
+    padding: 12px;
+    background: rgba(255,255,255,0.03);
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.08);
+    margin: 16px 24px 0;
+    font-family: var(--mono);
+    font-size: 13px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .input-display.hidden {
+    display: none;
+  }
+
+  .input-label {
+    color: var(--muted);
+    font-size: 11px;
+    margin-right: 8px;
+  }
+
+  .char-box {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.08);
+    color: var(--muted);
+    transition: all 0.22s ease;
+    font-weight: 600;
+  }
+
+  .char-box.current {
+    background: rgba(245,158,11,0.2);
+    border-color: rgba(245,158,11,0.5);
+    color: #fbbf24;
+    box-shadow: 0 0 12px rgba(245,158,11,0.24);
+  }
+
+  .char-box.processed {
+    background: rgba(34,197,94,0.14);
+    border-color: rgba(34,197,94,0.3);
+    color: var(--success);
+  }
+
+  .char-box.epsilon {
+    display: none;
+  }
+
   @media (max-width: 980px) {
     main {
       grid-template-columns: 1fr;
@@ -1127,6 +1267,24 @@ q1,b,q2</textarea>
         </div>
       </div>
 
+      <!-- Animation Controls -->
+      <div class="animation-controls" id="animation-controls">
+        <button class="control-btn" id="prev-btn" onclick="previousStep()" title="Previous step">◀ Prev</button>
+        <button class="control-btn play-btn" id="play-btn" onclick="toggleAutoPlay()" title="Play/Pause">▶ Play</button>
+        <button class="control-btn" id="next-btn" onclick="nextStep()" title="Next step">Next ▶</button>
+        <span class="step-indicator" id="step-indicator">Step 0/0</span>
+        <div class="speed-control" id="speed-control">
+          <label>Speed:</label>
+          <input type="range" id="speed-slider" min="0.5" max="2.5" step="0.25" value="1" onchange="updateAutoPlaySpeed()">
+        </div>
+      </div>
+
+      <!-- Input String Display -->
+      <div class="input-display hidden" id="input-display">
+        <span class="input-label">Input:</span>
+        <div id="input-chars-container"></div>
+      </div>
+
       <!-- Steps -->
       <div class="steps-container" id="steps-container">
         <div class="placeholder">
@@ -1189,6 +1347,16 @@ let activeStates = [];
 let graphAlphabet = [];
 let graphTime = 0;
 
+// ── Animation State ──────────────────────────────────────────────────────
+let allSteps = [];
+let currentStepIndex = 0;
+let isAutoPlaying = false;
+let autoPlaySpeed = 1;
+let autoPlayTimer = null;
+let currentMode = null; // 'dfa' or 'nfa'
+let inputString = '';
+let simulationAccepted = false;
+
 // ── Tab Switching ─────────────────────────────────────────────────────────
 function switchTab(tab) {
   currentTab = tab;
@@ -1199,6 +1367,164 @@ function switchTab(tab) {
   document.getElementById('tab-' + tab).style.display = 'flex';
   document.getElementById('tab-' + tab).style.flexDirection = 'column';
   clearResults();
+}
+
+// ── Animation Controls ───────────────────────────────────────────────────
+function nextStep() {
+  if (currentStepIndex < allSteps.length - 1) {
+    currentStepIndex++;
+    displayCurrentStep();
+    updateStepNavigation();
+  }
+}
+
+function previousStep() {
+  if (currentStepIndex > 0) {
+    currentStepIndex--;
+    displayCurrentStep();
+    updateStepNavigation();
+  }
+}
+
+function toggleAutoPlay() {
+  isAutoPlaying = !isAutoPlaying;
+  const btn = document.getElementById('play-btn');
+  if (isAutoPlaying) {
+    btn.classList.add('playing');
+    btn.textContent = '⏸ Pause';
+    scheduleNextStep();
+  } else {
+    btn.classList.remove('playing');
+    btn.textContent = '▶ Play';
+    if (autoPlayTimer) clearTimeout(autoPlayTimer);
+  }
+}
+
+function scheduleNextStep() {
+  if (!isAutoPlaying) return;
+  if (autoPlayTimer) clearTimeout(autoPlayTimer);
+  
+  const baseDelay = 1200; // milliseconds
+  const delay = baseDelay / autoPlaySpeed;
+  
+  autoPlayTimer = setTimeout(() => {
+    if (currentStepIndex < allSteps.length - 1) {
+      currentStepIndex++;
+      displayCurrentStep();
+      updateStepNavigation();
+      scheduleNextStep();
+    } else {
+      // End of simulation
+      isAutoPlaying = false;
+      const btn = document.getElementById('play-btn');
+      btn.classList.remove('playing');
+      btn.textContent = '▶ Play';
+    }
+  }, delay);
+}
+
+function updateAutoPlaySpeed() {
+  const slider = document.getElementById('speed-slider');
+  autoPlaySpeed = parseFloat(slider.value);
+  // If currently playing, restart the timer with new speed
+  if (isAutoPlaying) {
+    if (autoPlayTimer) clearTimeout(autoPlayTimer);
+    scheduleNextStep();
+  }
+}
+
+function displayCurrentStep() {
+  const container = document.getElementById('steps-container');
+  container.innerHTML = '';
+  
+  if (!allSteps.length) return;
+  
+  const step = allSteps[currentStepIndex];
+  const card = document.createElement('div');
+  
+  // Determine styling based on step position
+  let cardClass = 'step-card';
+  if (currentStepIndex === allSteps.length - 1) {
+    cardClass += simulationAccepted ? ' final-accept' : ' final-reject';
+  }
+  cardClass += ' active-step'; // Highlight current step
+  
+  card.className = cardClass;
+  
+  const numEl = document.createElement('div');
+  numEl.className = 'step-num';
+  numEl.textContent = step.step;
+  
+  const body = document.createElement('div');
+  body.className = 'step-body';
+  
+  if (currentMode === 'dfa') {
+    const state = step.next_state || step.current_state;
+    body.innerHTML = `<div class="step-state">${step.symbol_read ? `<span style="color:var(--muted)">${step.current_state}</span> <span class="arrow-sym">${step.symbol_read}</span> → ${step.next_state ?? '—'}` : `Start: ${step.current_state}`}</div>
+    <div class="step-detail">Remaining: <span style="color:var(--text)">"${step.remaining_input || '(end)'}"</span></div>`;
+  } else {
+    const active = step.active_states ? step.active_states.join(', ') : '—';
+    const next = step.next_states ? step.next_states.join(', ') : '—';
+    body.innerHTML = `<div class="step-state">${step.symbol_read ? `Read <span class="arrow-sym">${step.symbol_read}</span>` : 'Initial'}</div>
+    <div class="step-detail">Active: {${active}} → {${step.next_states ? next : active}}</div>
+    <div class="step-note">${step.note || ''}</div>`;
+  }
+  
+  card.appendChild(numEl);
+  card.appendChild(body);
+  container.appendChild(card);
+  
+  // Update graph highlighting
+  if (currentMode === 'dfa') {
+    activeStates = [step.next_state || step.current_state];
+  } else {
+    activeStates = step.next_states || step.active_states || [];
+  }
+  drawGraph();
+  
+  // Update input character highlighting
+  updateInputCharHighlight();
+}
+
+function updateInputCharHighlight() {
+  const display = document.getElementById('input-display');
+  const container = document.getElementById('input-chars-container');
+  
+  if (!inputString) {
+    display.classList.add('hidden');
+    return;
+  }
+  
+  display.classList.remove('hidden');
+  container.innerHTML = '';
+  
+  const step = allSteps[currentStepIndex];
+  let processedCount = step.step; // Number of characters processed so far
+  
+  for (let i = 0; i < inputString.length; i++) {
+    const char = inputString[i];
+    const box = document.createElement('div');
+    box.className = 'char-box';
+    box.textContent = char;
+    
+    if (i < processedCount) {
+      box.classList.add('processed');
+    } else if (i === processedCount) {
+      box.classList.add('current');
+    }
+    
+    container.appendChild(box);
+  }
+}
+
+function updateStepNavigation() {
+  const prevBtn = document.getElementById('prev-btn');
+  const nextBtn = document.getElementById('next-btn');
+  const indicator = document.getElementById('step-indicator');
+  
+  prevBtn.disabled = currentStepIndex === 0;
+  nextBtn.disabled = currentStepIndex === allSteps.length - 1;
+  indicator.textContent = `Step ${currentStepIndex}/${allSteps.length - 1}`;
 }
 
 // ── Parse helpers ─────────────────────────────────────────────────────────
@@ -1229,8 +1555,26 @@ function parseNFATrans(s) {
 
 // ── Clear ─────────────────────────────────────────────────────────────────
 function clearResults() {
+  // Stop auto-play
+  if (isAutoPlaying) {
+    isAutoPlaying = false;
+    const btn = document.getElementById('play-btn');
+    btn.classList.remove('playing');
+    btn.textContent = '▶ Play';
+  }
+  if (autoPlayTimer) clearTimeout(autoPlayTimer);
+  
+  // Reset animation state
+  allSteps = [];
+  currentStepIndex = 0;
+  currentMode = null;
+  inputString = '';
+  simulationAccepted = false;
+  
   document.getElementById('error-box').className = 'error-box';
   document.getElementById('result-banner').className = 'result-banner';
+  document.getElementById('animation-controls').classList.remove('show');
+  document.getElementById('input-display').classList.add('hidden');
   document.getElementById('steps-container').innerHTML = `<div class="placeholder"><div class="placeholder-icon">⟳</div><div class="placeholder-text">Define your automaton and run a simulation</div></div>`;
   document.getElementById('conv-result').className = 'conversion-result';
   activeStates = [];
@@ -1369,6 +1713,13 @@ async function runConvert() {
 
 // ── Render Steps ──────────────────────────────────────────────────────────
 function renderSteps(steps, accepted, reason, mode) {
+  // Store animation state
+  allSteps = steps;
+  currentStepIndex = 0;
+  currentMode = mode;
+  simulationAccepted = accepted;
+  inputString = document.getElementById(mode === 'dfa' ? 'dfa-input' : 'nfa-input').value.trim();
+  
   const container = document.getElementById('steps-container');
   container.innerHTML = '';
 
@@ -1382,42 +1733,12 @@ function renderSteps(steps, accepted, reason, mode) {
   title.textContent = accepted ? 'STRING ACCEPTED' : 'STRING REJECTED';
   reasonEl.textContent = reason;
 
-  steps.forEach((step, idx) => {
-    const card = document.createElement('div');
-    const isLast = idx === steps.length - 1;
-    card.className = 'step-card' + (isLast ? (accepted ? ' final-accept' : ' final-reject') : '');
-    card.style.animationDelay = (idx * 60) + 'ms';
-
-    const numEl = document.createElement('div');
-    numEl.className = 'step-num';
-    numEl.textContent = step.step;
-
-    const body = document.createElement('div');
-    body.className = 'step-body';
-
-    if (mode === 'dfa') {
-      const state = step.next_state || step.current_state;
-      body.innerHTML = `<div class="step-state">${step.symbol_read ? `<span style="color:var(--muted)">${step.current_state}</span> <span class="arrow-sym">${step.symbol_read}</span> → ${step.next_state ?? '—'}` : `Start: ${step.current_state}`}</div>
-      <div class="step-detail">Remaining: <span style="color:var(--text)">"${step.remaining_input || '(end)'}"</span></div>`;
-    } else {
-      const active = step.active_states ? step.active_states.join(', ') : '—';
-      const next = step.next_states ? step.next_states.join(', ') : '—';
-      body.innerHTML = `<div class="step-state">${step.symbol_read ? `Read <span class="arrow-sym">${step.symbol_read}</span>` : 'Initial'}</div>
-      <div class="step-detail">Active: {${active}} → {${step.next_states ? next : active}}</div>
-      <div class="step-note">${step.note || ''}</div>`;
-    }
-
-    card.appendChild(numEl);
-    card.appendChild(body);
-    container.appendChild(card);
-
-    // Highlight active states on graph after last step
-    if (isLast) {
-      if (mode === 'dfa') activeStates = [step.next_state || step.current_state];
-      else activeStates = step.next_states || step.active_states || [];
-      drawGraph();
-    }
-  });
+  // Show animation controls
+  document.getElementById('animation-controls').classList.add('show');
+  
+  // Display the first step
+  displayCurrentStep();
+  updateStepNavigation();
 }
 
 // ── Render Conversion ─────────────────────────────────────────────────────

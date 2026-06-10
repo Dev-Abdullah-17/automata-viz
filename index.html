@@ -500,33 +500,74 @@
     font-family: var(--mono);
   }
 
-  .preset-bar {
-    display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
-    padding: 18px 22px;
+  /* ── Preset Section ── */
+  .preset-section {
     border-bottom: 1px solid rgba(255,255,255,0.08);
     background: rgba(255,255,255,0.03);
   }
 
-  .preset-bar span {
-    font-size: 11px;
+  .preset-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 22px;
+  }
+
+  .preset-label {
+    font-size: 10px;
+    font-weight: 800;
     color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
     font-family: var(--mono);
+  }
+
+  .preset-edit-toggle {
+    font-size: 10px;
+    font-family: var(--mono);
+    padding: 4px 10px;
+    border-radius: 6px;
+    border: 1px solid rgba(255,255,255,0.12);
+    background: transparent;
+    color: #94a3b8;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-weight: 600;
+  }
+
+  .preset-edit-toggle:hover {
+    border-color: var(--accent2);
+    color: var(--accent2);
+  }
+
+  .preset-edit-toggle.active {
+    border-color: var(--accent2);
+    color: var(--accent2);
+    background: rgba(139,92,246,0.1);
+  }
+
+  .preset-bar {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding: 6px 22px 12px;
   }
 
   .preset-btn {
     font-family: var(--mono);
     font-size: 11px;
-    font-weight: 800;
-    padding: 12px 18px;
-    border-radius: 999px;
+    font-weight: 700;
+    padding: 8px 14px;
+    border-radius: 8px;
     border: 1px solid rgba(255,255,255,0.12);
     background: rgba(255,255,255,0.06);
     color: var(--text);
     cursor: pointer;
     transition: all 0.22s ease;
     white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 6px;
   }
 
   .preset-btn:hover {
@@ -534,6 +575,93 @@
     color: var(--accent);
     background: rgba(0,212,255,0.14);
     transform: translateY(-1px);
+  }
+
+  .preset-btn.custom {
+    border-color: rgba(139,92,246,0.3);
+    color: var(--accent2);
+  }
+
+  .preset-btn.custom:hover {
+    border-color: var(--accent2);
+    background: rgba(139,92,246,0.15);
+  }
+
+  .preset-btn .del-x {
+    font-size: 11px;
+    opacity: 0.4;
+    line-height: 1;
+    display: none;
+  }
+
+  .edit-mode .preset-btn .del-x {
+    display: inline;
+  }
+
+  .edit-mode .preset-btn .del-x:hover {
+    opacity: 1;
+    color: var(--danger);
+  }
+
+  .preset-add-form {
+    display: none;
+    flex-direction: column;
+    gap: 12px;
+    padding: 12px 22px 16px;
+    border-top: 1px solid rgba(255,255,255,0.08);
+  }
+
+  .preset-add-form.show {
+    display: flex;
+  }
+
+  .preset-add-form input,
+  .preset-add-form textarea {
+    font-size: 13px;
+    padding: 10px 12px;
+  }
+
+  .preset-add-row {
+    display: flex;
+    gap: 8px;
+  }
+
+  .preset-save-btn {
+    flex: 1;
+    padding: 10px 14px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--accent2), #7c3aed);
+    color: #fff;
+    transition: all 0.22s ease;
+    white-space: nowrap;
+  }
+
+  .preset-save-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(139,92,246,0.3);
+  }
+
+  .preset-cancel-btn {
+    padding: 10px 14px;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.12);
+    cursor: pointer;
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 700;
+    background: transparent;
+    color: #94a3b8;
+    transition: all 0.22s ease;
+  }
+
+  .preset-cancel-btn:hover {
+    border-color: var(--danger);
+    color: var(--danger);
   }
 
   .run-btn {
@@ -1133,10 +1261,49 @@
 
       <!-- DFA FORM -->
       <div id="tab-dfa" class="tab-content">
-        <div class="preset-bar">
-          <span style="font-size:10px;color:var(--muted);font-family:var(--mono);align-self:center;">Presets:</span>
-          <button class="preset-btn" onclick="loadDFAPreset(0)">ends in 01</button>
-          <button class="preset-btn" onclick="loadDFAPreset(1)">even 0s</button>
+        <div class="preset-section" id="dfa-preset-section">
+          <div class="preset-header">
+            <span class="preset-label">Presets</span>
+            <div style="display:flex;gap:6px;">
+              <button class="preset-edit-toggle" id="dfa-edit-btn" onclick="toggleEditMode('dfa')">✎ Edit</button>
+              <button class="preset-edit-toggle" onclick="showAddForm('dfa')" style="border-color:rgba(0,212,255,0.3);color:var(--accent);">+ Add</button>
+            </div>
+          </div>
+          <div class="preset-bar" id="dfa-preset-bar"></div>
+          <div class="preset-add-form" id="dfa-add-form">
+            <div class="field-group">
+              <label>Preset Name</label>
+              <input id="dfa-new-name" type="text" placeholder="e.g. starts with 1"/>
+            </div>
+            <div class="field-group">
+              <label>States</label>
+              <input id="dfa-new-states" type="text" placeholder="q0, q1"/>
+            </div>
+            <div class="field-group">
+              <label>Alphabet</label>
+              <input id="dfa-new-alpha" type="text" placeholder="0, 1"/>
+            </div>
+            <div class="field-group">
+              <label>Start State</label>
+              <input id="dfa-new-start" type="text" placeholder="q0"/>
+            </div>
+            <div class="field-group">
+              <label>Accept States</label>
+              <input id="dfa-new-accept" type="text" placeholder="q2"/>
+            </div>
+            <div class="field-group">
+              <label>Transitions (state,symbol,next per line)</label>
+              <textarea id="dfa-new-trans" style="min-height:60px;" placeholder="q0,1,q1&#10;q1,0,q1"></textarea>
+            </div>
+            <div class="field-group">
+              <label>Sample Input String</label>
+              <input id="dfa-new-input" type="text" placeholder="e.g. 101"/>
+            </div>
+            <div class="preset-add-row">
+              <button class="preset-save-btn" onclick="savePreset('dfa')">💾 Save Preset</button>
+              <button class="preset-cancel-btn" onclick="hideAddForm('dfa')">Cancel</button>
+            </div>
+          </div>
         </div>
         <div class="form-section">
           <div class="field-group">
@@ -1175,9 +1342,49 @@ q2,1,q0</textarea>
 
       <!-- NFA FORM -->
       <div id="tab-nfa" class="tab-content" style="display:none;">
-        <div class="preset-bar">
-          <span style="font-size:10px;color:var(--muted);font-family:var(--mono);align-self:center;">Presets:</span>
-          <button class="preset-btn" onclick="loadNFAPreset(0)">ends in ab</button>
+        <div class="preset-section" id="nfa-preset-section">
+          <div class="preset-header">
+            <span class="preset-label">Presets</span>
+            <div style="display:flex;gap:6px;">
+              <button class="preset-edit-toggle" id="nfa-edit-btn" onclick="toggleEditMode('nfa')">✎ Edit</button>
+              <button class="preset-edit-toggle" onclick="showAddForm('nfa')" style="border-color:rgba(0,212,255,0.3);color:var(--accent);">+ Add</button>
+            </div>
+          </div>
+          <div class="preset-bar" id="nfa-preset-bar"></div>
+          <div class="preset-add-form" id="nfa-add-form">
+            <div class="field-group">
+              <label>Preset Name</label>
+              <input id="nfa-new-name" type="text" placeholder="e.g. contains ab"/>
+            </div>
+            <div class="field-group">
+              <label>States</label>
+              <input id="nfa-new-states" type="text" placeholder="q0, q1, q2"/>
+            </div>
+            <div class="field-group">
+              <label>Alphabet (include ε if needed)</label>
+              <input id="nfa-new-alpha" type="text" placeholder="a, b, ε"/>
+            </div>
+            <div class="field-group">
+              <label>Start State</label>
+              <input id="nfa-new-start" type="text" placeholder="q0"/>
+            </div>
+            <div class="field-group">
+              <label>Accept States</label>
+              <input id="nfa-new-accept" type="text" placeholder="q2"/>
+            </div>
+            <div class="field-group">
+              <label>Transitions (state,symbol,next1;next2 per line)</label>
+              <textarea id="nfa-new-trans" style="min-height:60px;" placeholder="q0,a,q0;q1&#10;q1,b,q2"></textarea>
+            </div>
+            <div class="field-group">
+              <label>Sample Input String</label>
+              <input id="nfa-new-input" type="text" placeholder="e.g. aab"/>
+            </div>
+            <div class="preset-add-row">
+              <button class="preset-save-btn" onclick="savePreset('nfa')">💾 Save Preset</button>
+              <button class="preset-cancel-btn" onclick="hideAddForm('nfa')">Cancel</button>
+            </div>
+          </div>
         </div>
         <div class="form-section">
           <div class="field-group">
@@ -2004,43 +2211,6 @@ function animateGraph() {
   requestAnimationFrame(animateGraph);
 }
 
-// ── Presets ───────────────────────────────────────────────────────────────
-async function loadDFAPreset(idx) {
-  try {
-    const res = await fetch(API + '/examples');
-    const data = await res.json();
-    const ex = data.dfa_examples[idx];
-    document.getElementById('dfa-states').value = ex.states.join(', ');
-    document.getElementById('dfa-alpha').value = ex.alphabet.join(', ');
-    document.getElementById('dfa-start').value = ex.start_state;
-    document.getElementById('dfa-accept').value = ex.accept_states.join(', ');
-    let trans = '';
-    for (const [from, t] of Object.entries(ex.transitions))
-      for (const [sym, to] of Object.entries(t))
-        trans += `${from},${sym},${to}\n`;
-    document.getElementById('dfa-trans').value = trans.trim();
-    clearResults();
-  } catch(e) {}
-}
-
-async function loadNFAPreset(idx) {
-  try {
-    const res = await fetch(API + '/examples');
-    const data = await res.json();
-    const ex = data.nfa_examples[idx];
-    document.getElementById('nfa-states').value = ex.states.join(', ');
-    document.getElementById('nfa-alpha').value = ex.alphabet.join(', ');
-    document.getElementById('nfa-start').value = ex.start_state;
-    document.getElementById('nfa-accept').value = ex.accept_states.join(', ');
-    let trans = '';
-    for (const [from, t] of Object.entries(ex.transitions))
-      for (const [sym, tos] of Object.entries(t))
-        trans += `${from},${sym},${tos.join(';')}\n`;
-    document.getElementById('nfa-trans').value = trans.trim();
-    clearResults();
-  } catch(e) {}
-}
-
 // Initial graph draw
 function resizeParticles() {
   const canvas = document.getElementById('particleCanvas');
@@ -2118,6 +2288,150 @@ window.addEventListener('resize', () => {
   resizeParticles();
 });
 
+// ── PRESET SYSTEM ─────────────────────────────────────────────────────────
+
+// Built-in presets
+const BUILTIN_DFA = [
+  { name:"ends in 01", states:"q0, q1, q2", alpha:"0, 1", start:"q0", accept:"q2",
+    trans:"q0,0,q1\nq0,1,q0\nq1,0,q1\nq1,1,q2\nq2,0,q1\nq2,1,q0", input:"1001" },
+  { name:"even 0s", states:"q0, q1", alpha:"0, 1", start:"q0", accept:"q0",
+    trans:"q0,0,q1\nq0,1,q0\nq1,0,q0\nq1,1,q1", input:"0011" },
+  { name:"starts with 1", states:"q0, q1, q2", alpha:"0, 1", start:"q0", accept:"q1",
+    trans:"q0,1,q1\nq0,0,q2\nq1,0,q1\nq1,1,q1\nq2,0,q2\nq2,1,q2", input:"101" },
+];
+
+const BUILTIN_NFA = [
+  { name:"ends in ab", states:"q0, q1, q2", alpha:"a, b, ε", start:"q0", accept:"q2",
+    trans:"q0,a,q0;q1\nq0,b,q0\nq1,b,q2", input:"aab" },
+];
+
+// Custom presets (stored in localStorage)
+let customDFA = JSON.parse(localStorage.getItem('av_custom_dfa') || '[]');
+let customNFA = JSON.parse(localStorage.getItem('av_custom_nfa') || '[]');
+
+function saveToStorage() {
+  try {
+    localStorage.setItem('av_custom_dfa', JSON.stringify(customDFA));
+    localStorage.setItem('av_custom_nfa', JSON.stringify(customNFA));
+  } catch(e) {}
+}
+
+function renderPresetBar(type) {
+  const bar = document.getElementById(type+'-preset-bar');
+  const builtins = type === 'dfa' ? BUILTIN_DFA : BUILTIN_NFA;
+  const customs  = type === 'dfa' ? customDFA   : customNFA;
+  bar.innerHTML = '';
+
+  builtins.forEach((p, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'preset-btn';
+    btn.innerHTML = `<span>${p.name}</span><span class="del-x" onclick="event.stopPropagation();deleteBuiltinPreset('${type}',${i})">✕</span>`;
+    btn.onclick = () => applyPreset(type, p);
+    bar.appendChild(btn);
+  });
+
+  customs.forEach((p, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'preset-btn custom';
+    btn.innerHTML = `<span>${p.name}</span><span class="del-x" onclick="event.stopPropagation();deleteCustomPreset('${type}',${i})">✕</span>`;
+    btn.onclick = () => applyPreset(type, p);
+    bar.appendChild(btn);
+  });
+}
+
+function applyPreset(type, p) {
+  if(type === 'dfa') {
+    document.getElementById('dfa-states').value = p.states;
+    document.getElementById('dfa-alpha').value  = p.alpha;
+    document.getElementById('dfa-start').value  = p.start;
+    document.getElementById('dfa-accept').value = p.accept;
+    document.getElementById('dfa-trans').value  = p.trans;
+    document.getElementById('dfa-input').value  = p.input || '';
+  } else {
+    document.getElementById('nfa-states').value = p.states;
+    document.getElementById('nfa-alpha').value  = p.alpha;
+    document.getElementById('nfa-start').value  = p.start;
+    document.getElementById('nfa-accept').value = p.accept;
+    document.getElementById('nfa-trans').value  = p.trans;
+    document.getElementById('nfa-input').value  = p.input || '';
+  }
+  clearResults();
+}
+
+function toggleEditMode(type) {
+  const section = document.getElementById(type+'-preset-section');
+  const btn = document.getElementById(type+'-edit-btn');
+  const isEdit = section.classList.toggle('edit-mode');
+  btn.classList.toggle('active', isEdit);
+  btn.textContent = isEdit ? '✓ Done' : '✎ Edit';
+}
+
+function showAddForm(type) {
+  document.getElementById(type+'-add-form').classList.add('show');
+  document.getElementById(type+'-new-name').focus();
+}
+
+function hideAddForm(type) {
+  document.getElementById(type+'-add-form').classList.remove('show');
+  ['name','states','alpha','start','accept','trans','input'].forEach(f => {
+    const el = document.getElementById(type+'-new-'+f);
+    if(el) el.value = '';
+  });
+}
+
+function savePreset(type) {
+  const name   = document.getElementById(type+'-new-name').value.trim();
+  const states = document.getElementById(type+'-new-states').value.trim();
+  const alpha  = document.getElementById(type+'-new-alpha').value.trim();
+  const start  = document.getElementById(type+'-new-start').value.trim();
+  const accept = document.getElementById(type+'-new-accept').value.trim();
+  const trans  = document.getElementById(type+'-new-trans').value.trim();
+  const input  = document.getElementById(type+'-new-input').value.trim();
+
+  if(!name || !states || !alpha || !start || !accept || !trans) {
+    const nameEl = document.getElementById(type+'-new-name');
+    nameEl.style.borderColor = 'var(--danger)';
+    setTimeout(() => nameEl.style.borderColor = '', 1500);
+    return;
+  }
+
+  const preset = { name, states, alpha, start, accept, trans, input };
+  if(type === 'dfa') customDFA.push(preset);
+  else customNFA.push(preset);
+
+  saveToStorage();
+  renderPresetBar(type);
+  hideAddForm(type);
+
+  const bar = document.getElementById(type+'-preset-bar');
+  const lastBtn = bar.lastElementChild;
+  if(lastBtn) {
+    lastBtn.style.boxShadow = '0 0 0 2px var(--accent2)';
+    setTimeout(() => lastBtn.style.boxShadow = '', 1200);
+  }
+}
+
+function deleteCustomPreset(type, idx) {
+  if(type === 'dfa') customDFA.splice(idx, 1);
+  else customNFA.splice(idx, 1);
+  saveToStorage();
+  renderPresetBar(type);
+}
+
+function deleteBuiltinPreset(type, idx) {
+  // Built-ins can't be permanently deleted — just give feedback
+  const bar = document.getElementById(type+'-preset-bar');
+  const btns = bar.querySelectorAll('.preset-btn:not(.custom)');
+  if(btns[idx]) {
+    btns[idx].style.opacity = '0.3';
+    btns[idx].style.pointerEvents = 'none';
+    setTimeout(() => {
+      btns[idx].style.opacity = '';
+      btns[idx].style.pointerEvents = '';
+    }, 1500);
+  }
+}
+
 window.addEventListener('load', () => {
   initTheme();
   resizeParticles();
@@ -2125,6 +2439,8 @@ window.addEventListener('load', () => {
   animateParticles();
   animateGraph();
   drawGraph();
+  renderPresetBar('dfa');
+  renderPresetBar('nfa');
 });
 </script>
 </body>

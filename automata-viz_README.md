@@ -2,7 +2,7 @@
 
 An interactive tool for building finite automata, running strings through them step by step, and converting an NFA into an equivalent DFA — with every conversion step shown, not just the final result. Built to make the theory-of-computation concepts I teach visible rather than abstract.
 
-**Live demo:** <!-- TODO: paste your Railway URL here, e.g. https://automata-viz-production.up.railway.app -->
+**Live demo:**https://automata-viz-tau.vercel.app/
 
 ## What it does
 
